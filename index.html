@@ -1,0 +1,1292 @@
+<title>MedKredit CRM</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: fixed left rail on desktop, bottom tab bar on phones; right-side drawer for an installment plan */
+:root{
+  --bg:#F1F4F2; --surface:#FFFFFF; --surface-2:#E7EDEA; --fg:#14201B; --muted:#5A6A63; --line:#D3DCD8;
+  --accent:#1D6A50; --accent-soft:#DCEDE6; --accent-ink:#FFFFFF;
+  --ok:#1E8048; --ok-soft:#DDF1E4; --warn:#9A6411; --warn-soft:#F7EBD3; --bad:#B8352A; --bad-soft:#F8E0DC; --info:#2C659B; --info-soft:#DDE9F4;
+  --f-display:"Unbounded","IBM Plex Sans",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:10px; --side:232px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1412; --surface:#151D1A; --surface-2:#1C2723; --fg:#E2EBE7; --muted:#90A29A; --line:#28352F;
+  --accent:#55B48F; --accent-soft:#1B3329; --accent-ink:#0B1310;
+  --ok:#52C483; --ok-soft:#163323; --warn:#E3AA4B; --warn-soft:#3A2C14; --bad:#F06C5C; --bad-soft:#3D1D19; --info:#70A9DF; --info-soft:#17293A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1412; --surface:#151D1A; --surface-2:#1C2723; --fg:#E2EBE7; --muted:#90A29A; --line:#28352F;
+  --accent:#55B48F; --accent-soft:#1B3329; --accent-ink:#0B1310;
+  --ok:#52C483; --ok-soft:#163323; --warn:#E3AA4B; --warn-soft:#3A2C14; --bad:#F06C5C; --bad-soft:#3D1D19; --info:#70A9DF; --info-soft:#17293A; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-body)}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+h1,h2,h3{margin:0;text-wrap:balance}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* shell */
+.app{display:grid;grid-template-columns:var(--side) minmax(0,1fr);min-height:100%}
+.side{position:sticky;top:0;height:100vh;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 14px;gap:20px}
+.logo{font:600 17px/1 var(--f-display);letter-spacing:-.02em;display:flex;align-items:center;gap:10px;padding:0 8px}
+.logo i{width:28px;height:28px;border-radius:8px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:600 13px var(--f-display);font-style:normal}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--muted);text-align:left;font-weight:500}
+.nav button:hover{background:var(--surface-2);color:var(--fg)}
+.nav button[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.nav .badge{margin-left:auto}
+svg.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding:0 6px}
+.me{display:flex;gap:10px;align-items:center}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-weight:600;font-size:12px;flex:none}
+.me small{display:block;color:var(--muted);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:none;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.main{min-width:0;padding-block:24px 40px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px))}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.top h1{font:600 22px/1.2 var(--f-display);letter-spacing:-.02em;margin-right:auto}
+.demo-bar{background:var(--info-soft);color:var(--info);border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tabbar{display:none}
+.mob-only{display:none}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.ghost{border-color:transparent;background:none}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--muted);min-width:0}
+.inp{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;min-height:38px;color:var(--fg)}
+.inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea.inp{min-height:70px;resize:vertical}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);display:inline-flex;gap:6px;align-items:center}
+.chip[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.chip .num{font-size:12px;opacity:.75}
+
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;min-width:0}
+.panel h2{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.panel h2 .lnk{margin-left:auto;font-weight:500;font-size:13px;color:var(--accent);background:none;border:0;cursor:pointer}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.kpi .val{font:500 22px/1.15 var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi .sub{font-size:12px;color:var(--muted)}
+.kpi.bad .val{color:var(--bad)}
+.dash-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;margin-bottom:16px}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.bar{height:6px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:999px}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.st-active{background:var(--info-soft);color:var(--info)}
+.st-overdue{background:var(--bad-soft);color:var(--bad)}
+.st-closed{background:var(--ok-soft);color:var(--ok)}
+.st-cancelled{background:var(--surface-2);color:var(--muted)}
+.st-paid{background:var(--ok-soft);color:var(--ok)}
+.st-partial{background:var(--warn-soft);color:var(--warn)}
+.st-upcoming{background:var(--surface-2);color:var(--muted)}
+.st-pending{background:var(--warn-soft);color:var(--warn)}
+.badge{font:600 11px var(--f-num);background:var(--bad);color:#fff;border-radius:999px;padding:1px 7px}
+
+/* tables */
+.tw{overflow-x:auto;margin:0 -4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover td{background:var(--surface-2)}
+td small,.row small{display:block;color:var(--muted);font-size:12px}
+
+/* plan list rows */
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.row{display:grid;grid-template-columns:72px minmax(0,1.6fr) minmax(0,1.2fr) 110px 150px 104px 100px;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;background:none;border-left:0;border-right:0;border-top:0;text-align:left;width:100%}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--surface-2)}
+.row.head{cursor:default;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding-block:9px}
+.row.head:hover{background:none}
+.row .code{font:500 12px var(--f-num);color:var(--muted)}
+.row .r{text-align:right}
+.row.overdue{box-shadow:inset 3px 0 0 var(--bad)}
+.empty{padding:36px 16px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--fg);margin-bottom:4px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar .inp{width:auto;flex:1 1 220px}
+.toolbar select.inp{flex:0 1 200px}
+
+/* mini lists on dashboard */
+.mini{display:flex;flex-direction:column}
+.mini button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:9px 0;border:0;border-bottom:1px solid var(--line);background:none;text-align:left;cursor:pointer}
+.mini button:last-child{border-bottom:0}
+.mini button:hover .nm{color:var(--accent)}
+.mini .nm{font-weight:500}
+.mini .meta{font-size:12px;color:var(--muted)}
+.mini .amt{text-align:right}
+.mini .amt.bad{color:var(--bad)}
+
+/* chart */
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+
+/* doctors cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.dcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px}
+.dcard h3{font-size:15px;font-weight:600}
+.dcard .spec{font-size:12px;color:var(--muted)}
+.dstats{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;padding-top:12px;border-top:1px solid var(--line)}
+.dstats div{display:flex;flex-direction:column;gap:2px}
+.dstats span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+
+/* new plan */
+.np{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,400px);gap:16px;align-items:start}
+.np form{display:flex;flex-direction:column;gap:16px}
+.np fieldset{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:16px 18px;margin:0;display:flex;flex-direction:column;gap:12px;min-width:0}
+.np legend{font-weight:600;padding:0 6px;font-size:13px}
+.preview{position:sticky;top:20px}
+.monthly{display:flex;flex-direction:column;gap:2px;padding-bottom:14px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+.monthly .val{font:500 30px/1.1 var(--f-num);letter-spacing:-.03em;color:var(--accent)}
+.monthly small{color:var(--muted)}
+.sched{max-height:360px;overflow:auto}
+
+/* drawer & modal */
+.scrim{position:fixed;inset:0;background:rgba(8,14,12,.42);z-index:40;display:flex;justify-content:flex-end}
+.drawer{background:var(--bg);width:min(640px,100%);height:100%;overflow-y:auto;box-shadow:-10px 0 30px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.dhead{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--line);padding:16px 20px;padding-top:calc(16px + env(safe-area-inset-top,0px));padding-right:max(20px,env(safe-area-inset-right,0px));display:flex;gap:12px;align-items:flex-start;z-index:2}
+.dhead h2{font:600 18px/1.25 var(--f-display);letter-spacing:-.02em}
+.dhead .sub{color:var(--muted);font-size:13px;margin-top:4px}
+.dbody{padding:16px 20px 40px;padding-right:max(20px,env(safe-area-inset-right,0px));padding-bottom:calc(40px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.facts div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.facts span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.facts b{font:500 15px var(--f-num);font-variant-numeric:tabular-nums}
+.facts .bad b{color:var(--bad)}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 16px;font-size:13px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0}
+.payform{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end}
+.payform .full{grid-column:1/-1}
+.modal-wrap{position:fixed;inset:0;background:rgba(8,14,12,.42);z-index:50;display:grid;place-items:center;padding:16px}
+.modal{background:var(--surface);border-radius:12px;width:min(480px,100%);max-height:90vh;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal h3{font-size:16px;font-weight:600}
+.modal .acts{display:flex;justify-content:flex-end;gap:8px}
+.err{color:var(--bad);font-size:13px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;z-index:60;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+
+/* login */
+.login{min-height:100%;display:grid;place-items:center;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.lbox{width:min(400px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:28px;display:flex;flex-direction:column;gap:16px}
+.lbox .logo{padding:0;font-size:20px}
+.lbox p{margin:0;color:var(--muted)}
+.ulist{display:flex;flex-direction:column;gap:8px}
+.ulist button{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer;text-align:left}
+.ulist button:hover{border-color:var(--accent)}
+.muted{color:var(--muted)}
+.right{margin-left:auto}
+
+/* today tasks */
+.today-head{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.today-head .prog{flex:1 1 220px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.today-head .prog b{font:500 15px var(--f-num)}
+.sec-h{display:flex;align-items:center;gap:8px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-weight:600;color:var(--muted);margin:20px 0 8px}
+.tasks{display:flex;flex-direction:column;gap:8px}
+.task{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:start}
+.task.bad{box-shadow:inset 3px 0 0 var(--bad)}
+.task.warn{box-shadow:inset 3px 0 0 var(--warn)}
+.task.info{box-shadow:inset 3px 0 0 var(--info)}
+.task.done{box-shadow:inset 3px 0 0 var(--ok);background:var(--bg)}
+.task .nm{font-weight:600}
+.task .meta{font-size:12px;color:var(--muted)}
+.task .amt{text-align:right}
+.task .amt b{font:500 15px var(--f-num)}
+.task .line{grid-column:1/-1;font-size:13px;background:var(--surface-2);border-radius:8px;padding:6px 10px;min-width:0;overflow-wrap:anywhere}
+.task .line.warn{background:var(--warn-soft);color:var(--warn);font-weight:500}
+.task .line.bad{background:var(--bad-soft);color:var(--bad);font-weight:500}
+.task .acts{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.check{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--ok);margin-left:auto}
+/* notes & log timeline */
+.timeline{display:flex;flex-direction:column}
+.tl{display:grid;grid-template-columns:52px minmax(0,1fr);gap:2px 12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tl:last-child{border-bottom:0}
+.tl .when{font:500 12px/1.5 var(--f-num);color:var(--muted)}
+.tl .who{font-size:12px;color:var(--muted)}
+.tl .txt{min-width:0;overflow-wrap:anywhere}
+.tl.click{cursor:pointer}
+.tl.click:hover .txt{color:var(--accent)}
+.ntype{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--surface-2);color:var(--muted);margin-right:6px;white-space:nowrap}
+.ntype.promise{background:var(--warn-soft);color:var(--warn)}
+.ntype.noanswer{background:var(--bad-soft);color:var(--bad)}
+.ntype.call,.ntype.whatsapp{background:var(--info-soft);color:var(--info)}
+.noteform{display:grid;grid-template-columns:160px minmax(0,1fr);gap:10px;margin-bottom:6px}
+.noteform .full{grid-column:1/-1}
+.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:16px}
+.ucard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px;cursor:pointer;text-align:left}
+.ucard[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.ucard.idle{opacity:.6}
+.ucard .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:12px;color:var(--muted)}
+.ucard .stats b{display:block;font:500 14px var(--f-num);color:var(--fg)}
+.sheet-list{display:flex;flex-direction:column;gap:2px}
+.sheet-list button{display:flex;gap:12px;align-items:center;padding:12px;border:0;background:none;border-radius:8px;text-align:left;font-weight:500;cursor:pointer}
+.sheet-list button:hover,.sheet-list button[aria-current="page"]{background:var(--surface-2)}
+
+@media (max-width:1100px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dash-grid,.np{grid-template-columns:minmax(0,1fr)}
+  .preview{position:static}
+  .row{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 140px 100px}
+  .row .c-code,.row .c-total,.row .c-next{display:none}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .mob-only{display:flex}
+  .main{padding-block:16px calc(90px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .top h1{font-size:18px}
+  .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding:6px max(4px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(4px,env(safe-area-inset-left,0px))}
+  .tabbar button{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;color:var(--muted);font-size:10px;font-weight:600;padding:5px 2px;cursor:pointer;position:relative}
+  .tabbar button[aria-current="page"]{color:var(--accent)}
+  .tabbar button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tabbar .badge{position:absolute;top:0;left:55%;font-size:9px;padding:0 5px}
+  .row{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}
+  .row.head{display:none}
+  .row .c-doc{grid-column:1;font-size:12px;color:var(--muted)}
+  .row .c-prog{grid-column:1/-1}
+  .row .c-rem{grid-row:1;grid-column:2}
+  .row .c-st{grid-row:2;grid-column:2;justify-self:end}
+  .grid3{grid-template-columns:minmax(0,1fr)}
+  .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .payform{grid-template-columns:1fr 1fr}
+  .noteform{grid-template-columns:minmax(0,1fr)}
+  .kpi .val{font-size:18px}
+  .toolbar select.inp{flex:1 1 140px}
+}
+@media (max-width:420px){.grid2{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:no-preference){
+  .drawer{animation:slide .22s ease-out}
+  @keyframes slide{from{transform:translateX(30px);opacity:.6}to{transform:none;opacity:1}}
+}
+</style>
+
+<div id="app"></div>
+
+<script>
+/* ================================================================
+   НАСТРОЙКА FIREBASE
+   Вставьте сюда конфиг из Firebase Console → Project settings → Web app.
+   Пока здесь null — приложение работает в демо-режиме (данные в браузере).
+   ================================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA8uymVb1-KnttpMsHiGqH5Wg_MsFIifP0",
+  authDomain: "medkredit-crm.firebaseapp.com",
+  projectId: "medkredit-crm",
+  storageBucket: "medkredit-crm.firebasestorage.app",
+  messagingSenderId: "881205425785",
+  appId: "1:881205425785:web:6eae85a5bb897260f086a8"
+};
+/* пример:
+const FIREBASE_CONFIG = {
+  apiKey: "...", authDomain: "xxx.firebaseapp.com", projectId: "xxx",
+  storageBucket: "xxx.appspot.com", messagingSenderId: "...", appId: "..."
+};
+*/
+
+/* ---------------- утилиты ---------------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r2 = n => Math.round((+n || 0) * 100) / 100;
+const sum = a => r2(a.reduce((s, x) => s + (+x || 0), 0));
+const pad = n => String(n).padStart(2, '0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const TODAY = iso(new Date());
+const parse = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+const addMonths = (s, n) => { const [y,m,d] = s.split('-').map(Number); const t = new Date(y, m-1+n, 1); const last = new Date(t.getFullYear(), t.getMonth()+1, 0).getDate(); t.setDate(Math.min(d, last)); return iso(t); };
+const diffDays = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
+const fd = s => s ? s.split('-').reverse().join('.') : '—';
+const money = n => new Intl.NumberFormat('ru-RU', {minimumFractionDigits: 0, maximumFractionDigits: 2}).format(r2(n)) + ' ₼';
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).replace(/-/g, '').slice(0, 20);
+const initials = n => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const monthKey = s => s.slice(0, 7);
+
+/* ---------------- переводы ---------------- */
+const I18N = {
+ ru: {
+  app:'MedKredit', dashboard:'Обзор', plans:'Рассрочки', newPlan:'Новая рассрочка', clients:'Клиенты', doctors:'Врачи', reports:'Отчёты', users:'Сотрудники',
+  logout:'Выйти', demoNote:'Демо-режим: данные примерные и хранятся только в этом браузере. Для общей работы команды подключите Firebase.', resetDemo:'Сбросить демо',
+  portfolio:'К получению', portfolioSub:'остаток по активным', collectedMonth:'Собрано в этом месяце', ofExpected:'из ожидаемых', overdue:'Просрочено', overdueSub:'клиентов с долгом', activePlans:'Активных рассрочек', financed:'выдано всего',
+  collections:'Поступления по месяцам', expected:'Ожидалось', collected:'Собрано', overdueList:'Просрочки', upcoming:'Платежи на 7 дней', byDoctor:'По врачам', all:'Все', showAll:'Все →',
+  noOverdue:'Просрочек нет', noUpcoming:'На ближайшую неделю платежей нет', daysShort:'дн.', today:'сегодня', inDays:'через',
+  st_active:'Активна', st_overdue:'Просрочка', st_closed:'Закрыта', st_cancelled:'Отменена', st_paid:'Оплачен', st_partial:'Частично', st_upcoming:'Ожидается', st_pending:'Ожидает',
+  search:'Поиск: имя, телефон, номер', allDoctors:'Все врачи', code:'№', client:'Клиент', doctor:'Врач', procedure:'Процедура', total:'Сумма', paid:'Оплачено', remaining:'Остаток', nextDue:'След. платёж', status:'Статус',
+  nothing:'Ничего не найдено', nothingSub:'Измените фильтр или поиск',
+  clientName:'Имя и фамилия клиента', phone:'Телефон', procedurePh:'Например: ринопластика', startDate:'Дата начала', totalSum:'Стоимость, ₼', down:'Первый взнос, ₼', months:'Срок, мес.', manager:'Менеджер', note:'Примечание',
+  clientSec:'Клиент', dealSec:'Операция', termsSec:'Условия рассрочки', create:'Создать рассрочку', monthly:'Ежемесячный платёж', schedule:'График платежей', due:'Дата', amount:'Сумма', downRow:'Первый взнос',
+  errClient:'Укажите имя и телефон клиента', errDoctor:'Выберите врача', errSum:'Сумма должна быть больше первого взноса', created:'Рассрочка создана',
+  payments:'Платежи', addPayment:'Принять платёж', payDate:'Дата оплаты', method:'Способ', m_cash:'Наличные', m_card:'Карта', m_transfer:'Перевод', save:'Сохранить', cancel:'Отмена', saved:'Сохранено',
+  errAmount:'Введите сумму больше нуля', errOver:'Сумма больше остатка', payAdded:'Платёж принят', noPayments:'Платежей пока нет', del:'Удалить', confirmDel:'Точно удалить?', yes:'Да', payDeleted:'Платёж удалён',
+  cancelPlan:'Отменить рассрочку', confirmCancel:'Отменить рассрочку? График перестанет учитываться.', planCancelled:'Рассрочка отменена', restorePlan:'Восстановить', restored:'Рассрочка восстановлена',
+  reminder:'Текст напоминания', copy:'Скопировать', copied:'Скопировано', copyFail:'Не удалось скопировать — выделите текст вручную',
+  remindTpl:'Здравствуйте, {name}! Напоминаем о платеже по рассрочке ({proc}): {amount} до {date}. Спасибо!',
+  remindOver:'Здравствуйте, {name}! По вашей рассрочке ({proc}) есть просроченный платёж: {amount}. Пожалуйста, оплатите в ближайшее время. Спасибо!',
+  details:'Детали', created_by:'Оформил', createdAt:'Создана', progress:'Погашено',
+  addClient:'Новый клиент', editClient:'Клиент', plansCount:'Рассрочек', debt:'Долг', openPlans:'Открыть рассрочки',
+  addDoctor:'Добавить врача', editDoctor:'Врач', docName:'ФИО врача', specialty:'Специализация', clinic:'Клиника', sent:'Клиентов', inWork:'В работе', edit:'Изменить',
+  period:'Период', from:'С', to:'По', thisMonth:'Этот месяц', lastMonth:'Прошлый месяц', thisYear:'Этот год', paymentsCount:'Платежей', newFinanced:'Новых рассрочек на сумму', byManager:'По менеджерам',
+  paymentsList:'Все платежи за период', exportCsv:'Скачать CSV', copyCsv:'Копировать для Excel', noData:'Нет данных за период',
+  role:'Роль', r_admin:'Администратор', r_manager:'Менеджер', r_accountant:'Бухгалтер', r_pending:'Ожидает доступа', email:'Email', addUser:'Добавить сотрудника', name:'Имя',
+  loginTitle:'Вход в систему', loginDemo:'Демо: выберите, под кем войти. У каждой роли свои права.', password:'Пароль', signIn:'Войти', signUp:'Регистрация', haveAcc:'Уже есть аккаунт? Войти', noAcc:'Нет аккаунта? Регистрация',
+  pendingTitle:'Доступ ещё не выдан', pendingText:'Ваш аккаунт создан. Администратор должен назначить вам роль, после этого обновите страницу.',
+  loading:'Загрузка…', fbError:'Ошибка подключения к Firebase', noPerm:'Нет прав на это действие', rights:'Права',
+  rightsAdmin:'всё, включая сотрудников и удаление', rightsManager:'клиенты, новые рассрочки, приём платежей', rightsAccountant:'приём и удаление платежей, отчёты',
+  cnt_plans:'рассрочек', of:'из',
+  today:'Сегодня', log:'Журнал', more:'Ещё', scopeMine:'Мои клиенты', scopeAll:'Все клиенты',
+  worked:'Отработано сегодня', todayEmpty:'На сегодня задач нет', todayEmptySub:'Нет просрочек и платежей в ближайшие 3 дня',
+  sec_overdue:'Просрочено — связаться', sec_today:'Платёж сегодня', sec_soon:'Скоро платёж (1–3 дня)', sec_done:'Уже отработаны сегодня',
+  promiseBy:'Обещал(а) оплатить до', promiseBroken:'Обещание не выполнено, срок был', doneToday:'Отработан',
+  addNote:'Заметка', notes:'Заметки по клиенту', noteText:'Текст заметки', noteType:'Тип', promiseDate:'Обещанная дата оплаты', noNotes:'Заметок пока нет', noteSaved:'Заметка сохранена', errNote:'Напишите текст заметки', errPromise:'Укажите дату, когда клиент обещал оплатить', lastNote:'Последняя заметка', addNoteBtn:'Добавить заметку',
+  n_call:'Звонок', n_whatsapp:'WhatsApp', n_promise:'Обещал оплатить', n_noanswer:'Не отвечает', n_other:'Заметка',
+  dueToday:'сегодня', dueTomorrow:'завтра', overdueDays:'просрочка',
+  logEmpty:'За этот день действий нет', noActivity:'Нет активности', actions:'действий', workTime:'Время работы',
+  a_login:'Вошёл(ла) в систему', a_planCreate:'Создал(а) рассрочку', a_payAdd:'Принял(а) платёж', a_payDelete:'Удалил(а) платёж', a_cancel:'Отменил(а) рассрочку', a_restore:'Восстановил(а) рассрочку', a_note:'Заметка', a_client:'Сохранил(а) клиента', a_doctor:'Сохранил(а) врача', a_role:'Изменил(а) роль',
+  allEmployees:'Все сотрудники', notesCount:'Заметок', paysCount:'Платежей', plansNew:'Рассрочек'
+ },
+ az: {
+  app:'MedKredit', dashboard:'İcmal', plans:'Kreditlər', newPlan:'Yeni kredit', clients:'Müştərilər', doctors:'Həkimlər', reports:'Hesabatlar', users:'İşçilər',
+  logout:'Çıxış', demoNote:'Demo rejim: məlumatlar nümunədir və yalnız bu brauzerdə saxlanılır. Komanda üçün Firebase qoşun.', resetDemo:'Demonu sıfırla',
+  portfolio:'Alınacaq', portfolioSub:'aktivlər üzrə qalıq', collectedMonth:'Bu ay yığılıb', ofExpected:'gözləniləndən', overdue:'Gecikmə', overdueSub:'borclu müştəri', activePlans:'Aktiv kreditlər', financed:'cəmi verilib',
+  collections:'Aylar üzrə daxilolmalar', expected:'Gözlənilən', collected:'Yığılan', overdueList:'Gecikmələr', upcoming:'7 gün ərzində ödənişlər', byDoctor:'Həkimlər üzrə', all:'Hamısı', showAll:'Hamısı →',
+  noOverdue:'Gecikmə yoxdur', noUpcoming:'Yaxın həftə ödəniş yoxdur', daysShort:'gün', today:'bu gün', inDays:'',
+  st_active:'Aktiv', st_overdue:'Gecikmə', st_closed:'Bağlanıb', st_cancelled:'Ləğv edilib', st_paid:'Ödənilib', st_partial:'Qismən', st_upcoming:'Gözlənilir', st_pending:'Gözləyir',
+  search:'Axtarış: ad, telefon, nömrə', allDoctors:'Bütün həkimlər', code:'№', client:'Müştəri', doctor:'Həkim', procedure:'Prosedur', total:'Məbləğ', paid:'Ödənilib', remaining:'Qalıq', nextDue:'Növbəti ödəniş', status:'Status',
+  nothing:'Heç nə tapılmadı', nothingSub:'Filtri və ya axtarışı dəyişin',
+  clientName:'Müştərinin adı və soyadı', phone:'Telefon', procedurePh:'Məsələn: rinoplastika', startDate:'Başlama tarixi', totalSum:'Qiymət, ₼', down:'İlkin ödəniş, ₼', months:'Müddət, ay', manager:'Menecer', note:'Qeyd',
+  clientSec:'Müştəri', dealSec:'Əməliyyat', termsSec:'Kredit şərtləri', create:'Kredit yarat', monthly:'Aylıq ödəniş', schedule:'Ödəniş qrafiki', due:'Tarix', amount:'Məbləğ', downRow:'İlkin ödəniş',
+  errClient:'Müştərinin adını və telefonunu yazın', errDoctor:'Həkim seçin', errSum:'Məbləğ ilkin ödənişdən çox olmalıdır', created:'Kredit yaradıldı',
+  payments:'Ödənişlər', addPayment:'Ödəniş qəbul et', payDate:'Ödəniş tarixi', method:'Üsul', m_cash:'Nağd', m_card:'Kart', m_transfer:'Köçürmə', save:'Yadda saxla', cancel:'Ləğv', saved:'Yadda saxlanıldı',
+  errAmount:'Sıfırdan böyük məbləğ yazın', errOver:'Məbləğ qalıqdan çoxdur', payAdded:'Ödəniş qəbul edildi', noPayments:'Hələ ödəniş yoxdur', del:'Sil', confirmDel:'Silinsin?', yes:'Bəli', payDeleted:'Ödəniş silindi',
+  cancelPlan:'Krediti ləğv et', confirmCancel:'Kredit ləğv edilsin? Qrafik nəzərə alınmayacaq.', planCancelled:'Kredit ləğv edildi', restorePlan:'Bərpa et', restored:'Kredit bərpa edildi',
+  reminder:'Xatırlatma mətni', copy:'Kopyala', copied:'Kopyalandı', copyFail:'Kopyalamaq alınmadı — mətni əl ilə seçin',
+  remindTpl:'Salam, {name}! Kredit üzrə ({proc}) ödənişi xatırladırıq: {amount}, son tarix {date}. Təşəkkürlər!',
+  remindOver:'Salam, {name}! Kreditiniz üzrə ({proc}) gecikmiş ödəniş var: {amount}. Zəhmət olmasa, tezliklə ödəyin. Təşəkkürlər!',
+  details:'Təfərrüatlar', created_by:'Rəsmiləşdirən', createdAt:'Yaradılıb', progress:'Ödənilib',
+  addClient:'Yeni müştəri', editClient:'Müştəri', plansCount:'Kreditlər', debt:'Borc', openPlans:'Kreditləri aç',
+  addDoctor:'Həkim əlavə et', editDoctor:'Həkim', docName:'Həkimin adı', specialty:'İxtisas', clinic:'Klinika', sent:'Müştəri', inWork:'İcrada', edit:'Dəyiş',
+  period:'Dövr', from:'Başlanğıc', to:'Son', thisMonth:'Bu ay', lastMonth:'Keçən ay', thisYear:'Bu il', paymentsCount:'Ödəniş', newFinanced:'Yeni kreditlərin məbləği', byManager:'Menecerlər üzrə',
+  paymentsList:'Dövr üzrə bütün ödənişlər', exportCsv:'CSV yüklə', copyCsv:'Excel üçün kopyala', noData:'Bu dövrdə məlumat yoxdur',
+  role:'Rol', r_admin:'Administrator', r_manager:'Menecer', r_accountant:'Mühasib', r_pending:'Giriş gözləyir', email:'Email', addUser:'İşçi əlavə et', name:'Ad',
+  loginTitle:'Sistemə giriş', loginDemo:'Demo: kim kimi daxil olacağınızı seçin. Hər rolun öz hüquqları var.', password:'Şifrə', signIn:'Daxil ol', signUp:'Qeydiyyat', haveAcc:'Hesabınız var? Daxil olun', noAcc:'Hesabınız yoxdur? Qeydiyyat',
+  pendingTitle:'Giriş hələ verilməyib', pendingText:'Hesabınız yaradılıb. Administrator sizə rol təyin etməlidir, sonra səhifəni yeniləyin.',
+  loading:'Yüklənir…', fbError:'Firebase-ə qoşulma xətası', noPerm:'Bu əməliyyata hüququnuz yoxdur', rights:'Hüquqlar',
+  rightsAdmin:'hər şey, işçilər və silmə daxil', rightsManager:'müştərilər, yeni kreditlər, ödəniş qəbulu', rightsAccountant:'ödənişlərin qəbulu və silinməsi, hesabatlar',
+  cnt_plans:'kredit', of:'/',
+  today:'Bu gün', log:'Jurnal', more:'Daha', scopeMine:'Mənim müştərilərim', scopeAll:'Bütün müştərilər',
+  worked:'Bu gün işlənib', todayEmpty:'Bu gün üçün tapşırıq yoxdur', todayEmptySub:'Gecikmə və yaxın 3 gündə ödəniş yoxdur',
+  sec_overdue:'Gecikmə — əlaqə saxlayın', sec_today:'Bu gün ödəniş', sec_soon:'Tezliklə ödəniş (1–3 gün)', sec_done:'Bu gün artıq işlənənlər',
+  promiseBy:'Ödəməyi vəd edib, son tarix', promiseBroken:'Vəd yerinə yetirilməyib, tarix idi', doneToday:'İşlənib',
+  addNote:'Qeyd', notes:'Müştəri üzrə qeydlər', noteText:'Qeydin mətni', noteType:'Növ', promiseDate:'Vəd edilən ödəniş tarixi', noNotes:'Hələ qeyd yoxdur', noteSaved:'Qeyd saxlanıldı', errNote:'Qeydin mətnini yazın', errPromise:'Müştərinin ödəməyi vəd etdiyi tarixi yazın', lastNote:'Son qeyd', addNoteBtn:'Qeyd əlavə et',
+  n_call:'Zəng', n_whatsapp:'WhatsApp', n_promise:'Ödəməyi vəd etdi', n_noanswer:'Cavab vermir', n_other:'Qeyd',
+  dueToday:'bu gün', dueTomorrow:'sabah', overdueDays:'gecikmə',
+  logEmpty:'Bu gün üçün əməliyyat yoxdur', noActivity:'Fəaliyyət yoxdur', actions:'əməliyyat', workTime:'İş vaxtı',
+  a_login:'Sistemə daxil oldu', a_planCreate:'Kredit yaratdı', a_payAdd:'Ödəniş qəbul etdi', a_payDelete:'Ödənişi sildi', a_cancel:'Krediti ləğv etdi', a_restore:'Krediti bərpa etdi', a_note:'Qeyd', a_client:'Müştərini saxladı', a_doctor:'Həkimi saxladı', a_role:'Rolu dəyişdi',
+  allEmployees:'Bütün işçilər', notesCount:'Qeyd', paysCount:'Ödəniş', plansNew:'Kredit'
+ }
+};
+let lang = lsGet('mk_lang', 'ru');
+const t = k => I18N[lang][k] ?? I18N.ru[k] ?? k;
+const locale = () => lang === 'az' ? 'az-Latn-AZ' : 'ru-RU';
+
+/* ---------------- права ---------------- */
+const CAN = {
+  admin:      ['plan.create','plan.cancel','pay.add','pay.delete','client.edit','doctor.edit','users','log'],
+  manager:    ['plan.create','pay.add','client.edit'],
+  accountant: ['pay.add','pay.delete'],
+  pending:    []
+};
+const can = p => !!(state.me && (CAN[state.me.role] || []).includes(p));
+
+/* ---------------- данные ---------------- */
+const DB = { users: [], doctors: [], clients: [], plans: [], notes: [], activity: [] };
+const state = { me: null, view: 'dashboard', todayScope: null, logDay: TODAY, logUser: '', planFilter: 'all', planSearch: '', planDoctor: '', drawer: null, confirm: null,
+  repFrom: TODAY.slice(0,8) + '01', repTo: TODAY, authMode: 'in', loading: true, error: '' };
+
+const byId = (col, id) => DB[col].find(x => x.id === id);
+const userName = id => byId('users', id)?.name || '—';
+const docName = id => byId('doctors', id)?.name || '—';
+
+function buildSchedule(total, down, months, start) {
+  total = r2(total); down = r2(down); months = Math.max(1, +months || 1);
+  const rows = [];
+  if (down > 0) rows.push({ n: 0, due: start, amount: down });
+  const rest = r2(total - down);
+  const base = Math.floor(rest / months * 100) / 100;
+  for (let i = 1; i <= months; i++) rows.push({ n: i, due: addMonths(start, i), amount: i < months ? base : r2(rest - base * (months - 1)) });
+  return rows;
+}
+
+/* распределяет все платежи по графику по порядку и считает статус */
+function calc(p) {
+  const pays = (p.payments || []);
+  const paidTotal = sum(pays.map(x => x.amount));
+  let pool = paidTotal;
+  const rows = (p.schedule || []).map(r => {
+    const paid = r2(Math.min(pool, r.amount)); pool = r2(pool - paid);
+    const rem = r2(r.amount - paid);
+    let st = rem <= 0.004 ? 'paid' : r.due < TODAY ? 'overdue' : paid > 0 ? 'partial' : 'upcoming';
+    return { ...r, paid, rem, st };
+  });
+  const remaining = Math.max(0, r2(p.total - paidTotal));
+  const over = rows.filter(r => r.st === 'overdue');
+  const overdueAmt = p.cancelled ? 0 : sum(over.map(r => r.rem));
+  const next = rows.find(r => r.rem > 0.004);
+  const status = p.cancelled ? 'cancelled' : remaining <= 0.004 ? 'closed' : overdueAmt > 0 ? 'overdue' : 'active';
+  return { rows, paidTotal, remaining, overdueAmt, next, status, daysOver: over.length ? diffDays(over[0].due, TODAY) : 0, pct: p.total ? Math.min(100, paidTotal / p.total * 100) : 0 };
+}
+let CALC = new Map(), NOTES = new Map();
+function recalc() {
+  DB.notes = DB.notes || []; DB.activity = DB.activity || [];
+  CALC = new Map(DB.plans.map(p => [p.id, calc(p)]));
+  NOTES = new Map();
+  [...DB.notes].sort((a, b) => b.at.localeCompare(a.at)).forEach(n => { if (!NOTES.has(n.clientId)) NOTES.set(n.clientId, []); NOTES.get(n.clientId).push(n); });
+}
+const clientNotes = cid => NOTES.get(cid) || [];
+const hhmm = isoStr => new Date(isoStr).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
+const atLocal = (day, time) => new Date(`${day}T${time}:00`).toISOString();
+
+/* журнал действий: всё, что делают сотрудники */
+async function log(action, params = {}) {
+  if (!state.me) return;
+  const a = { id: uid(), action, by: state.me.id, at: new Date().toISOString(), day: TODAY, ...params };
+  try { await B.save('activity', a); } catch {}
+}
+async function addNote(clientId, planId, type, text, promiseDate) {
+  const n = { id: uid(), clientId, planId: planId || '', type, text, promiseDate: type === 'promise' ? promiseDate : '', by: state.me.id, at: new Date().toISOString(), day: TODAY };
+  await save('notes', n, t('noteSaved'));
+  await log('note.add', { type, text: text.slice(0, 120), name: byId('clients', clientId)?.name || '', clientId, planId: planId || '' });
+}
+const C = p => CALC.get(p.id) || calc(p);
+const livePlans = () => DB.plans.filter(p => !p.cancelled);
+
+/* ---------------- демо-данные ---------------- */
+function seed() {
+  const users = [
+    { id: 'u1', name: 'Admin', email: 'admin@demo', role: 'admin' },
+    { id: 'u2', name: 'Nigar Hüseynova', email: 'nigar@demo', role: 'manager' },
+    { id: 'u3', name: 'Tural Abbasov', email: 'tural@demo', role: 'manager' },
+    { id: 'u4', name: 'Sevinc Rzayeva', email: 'sevinc@demo', role: 'accountant' },
+  ];
+  const doctors = [
+    { id: 'd1', name: 'Dr. Elnur Məmmədov', specialty: 'Пластический хирург', clinic: 'Estetik Line', phone: '+994 50 210 44 18' },
+    { id: 'd2', name: 'Dr. Leyla Həsənova', specialty: 'Ринопластика', clinic: 'Nova Clinic', phone: '+994 55 318 07 92' },
+    { id: 'd3', name: 'Dr. Rəşad Quliyev', specialty: 'Маммопластика, абдоминопластика', clinic: 'Estetik Line', phone: '+994 70 642 55 30' },
+    { id: 'd4', name: 'Dr. Günel Əliyeva', specialty: 'Блефаропластика', clinic: 'Lumière', phone: '+994 51 774 12 06' },
+    { id: 'd5', name: 'Dr. Kamran Babayev', specialty: 'Липосакция', clinic: 'Nova Clinic', phone: '+994 50 905 63 41' },
+  ];
+  const names = ['Aysel Kərimova','Nərmin Səfərova','Lalə Orucova','Günay İsmayılova','Səbinə Hacıyeva','Fidan Novruzova','Ülviyyə Cəfərova','Aytən Mirzəyeva','Könül Əsədova','Elvin Qasımov','Zəhra Nəbiyeva','Məleykə Paşayeva','Sevda Əhmədova','Rəna Bağırova'];
+  const clients = names.map((n, i) => ({ id: 'c' + (i+1), name: n, phone: `+994 ${['50','55','70','51','77'][i%5]} ${300 + i*37} ${pad(10 + i*3 % 89)} ${pad(20 + i*7 % 79)}` }));
+  // [клиент, врач, менеджер, процедура, дней назад, мес, сумма, взнос, оплачено взносов, доп. частично, отменена]
+  const spec = [
+    [0,'d2','u2','Ринопластика', 250, 10, 6500, 1500, 8, 0],
+    [1,'d1','u2','Абдоминопластика', 190, 12, 9800, 2000, 5, 0],
+    [2,'d3','u3','Маммопластика', 160, 8, 8400, 2400, 3, 0],
+    [3,'d4','u3','Блефаропластика', 120, 6, 3600, 600, 4, 0],
+    [4,'d5','u2','Липосакция', 95, 6, 4800, 1200, 1, 150],
+    [5,'d2','u3','Ринопластика', 75, 10, 7200, 1200, 2, 0],
+    [6,'d1','u2','Подтяжка лица', 300, 9, 11000, 3000, 9, 0],
+    [7,'d3','u3','Маммопластика', 60, 12, 10200, 1800, 1, 0],
+    [8,'d4','u2','Блефаропластика', 40, 4, 2800, 800, 1, 0],
+    [9,'d5','u3','Липосакция', 220, 8, 5600, 1600, 4, 0],
+    [10,'d2','u2','Септопластика', 25, 6, 4200, 1200, 0, 0],
+    [11,'d1','u3','Липофилинг', 140, 5, 3500, 1000, 5, 0],
+    [12,'d3','u2','Абдоминопластика', 12, 10, 9000, 2000, 0, 0],
+    [13,'d4','u3','Отопластика', 85, 6, 3000, 600, 1, 0, true],
+  ];
+  const methods = ['cash','card','transfer'];
+  const plans = spec.map((s, i) => {
+    const [ci, d, m, proc, ago, months, total, down, paidN, extra, cancelled] = s;
+    const start = addDays(TODAY, -ago);
+    const schedule = buildSchedule(total, down, months, start);
+    const payments = [];
+    schedule.forEach(r => {
+      if (r.n === 0 || r.n <= paidN) {
+        const date = r.n === 0 ? start : addDays(r.due, (i + r.n) % 4 - 1);
+        if (date <= TODAY) payments.push({ id: uid(), amount: r.amount, date, method: methods[(i + r.n) % 3], by: i % 2 ? 'u4' : m, note: '' });
+      }
+    });
+    if (extra) payments.push({ id: uid(), amount: extra, date: addDays(TODAY, -3), method: 'cash', by: 'u4', note: '' });
+    return { id: 'p' + (i+1), code: 'R-' + String(i+1).padStart(4, '0'), clientId: 'c' + (ci+1), doctorId: d, managerId: m, procedure: proc,
+      total, down, months, startDate: start, schedule, payments, note: '', cancelled: !!cancelled, createdAt: start };
+  });
+  // заметки менеджеров: [клиент, план, тип, текст, дней назад, время, кто, обещание через N дней]
+  const noteSpec = [
+    [5, 'p5', 'promise', 'Обещала оплатить остаток до конца недели, ждёт зарплату', 1, '11:20', 'u2', 1],
+    [5, 'p5', 'call', 'Позвонила, клиентка в курсе долга', 4, '15:05', 'u2'],
+    [2, 'p2', 'noanswer', '', 1, '10:40', 'u2'],
+    [2, 'p2', 'whatsapp', 'Отправили напоминание в WhatsApp, прочитала', 3, '12:15', 'u2'],
+    [3, 'p3', 'promise', 'Сказала, что оплатит после поездки', 6, '16:30', 'u3', -2],
+    [8, 'p8', 'call', 'Оплатит на этой неделе, просит не звонить до обеда', 2, '14:10', 'u3'],
+    [6, 'p6', 'whatsapp', 'Напомнили о платеже, ответила «спасибо, оплачу»', 0, '10:15', 'u3'],
+    [1, 'p1', 'other', 'Клиентка довольна результатом, рекомендует подругам', 12, '13:00', 'u2'],
+  ];
+  const notes = noteSpec.map(([ci, pid, type, text, ago, time, by, prom]) => {
+    const day = addDays(TODAY, -ago);
+    return { id: uid(), clientId: 'c' + ci, planId: pid, type, text, promiseDate: prom != null ? addDays(TODAY, prom) : '', by, at: atLocal(day, time), day };
+  });
+  const cname = id => clients.find(c => c.id === id)?.name || '';
+  const activity = [];
+  const act = (day, time, by, action, extra) => activity.push({ id: uid(), action, by, at: atLocal(day, time), day, ...extra });
+  [0, 1].forEach(ago => { const d = addDays(TODAY, -ago); act(d, '09:12', 'u2', 'login'); act(d, '09:41', 'u3', 'login'); act(d, '10:03', 'u4', 'login'); if (ago) act(d, '08:55', 'u1', 'login'); });
+  notes.filter(n => n.day >= addDays(TODAY, -6)).forEach(n => activity.push({ id: uid(), action: 'note.add', by: n.by, at: n.at, day: n.day, type: n.type, text: n.text, name: cname(n.clientId), clientId: n.clientId, planId: n.planId }));
+  plans.forEach(p => p.payments.filter(x => x.date >= addDays(TODAY, -6)).forEach((x, i) => {
+    const time = `${pad(11 + i % 6)}:${pad(7 + (i * 13) % 50)}`; x.at = atLocal(x.date, time);
+    act(x.date, time, x.by, 'pay.add', { amount: x.amount, code: p.code, name: cname(p.clientId), planId: p.id, clientId: p.clientId });
+  }));
+  plans.filter(p => p.startDate >= addDays(TODAY, -14)).forEach(p => act(p.startDate, '12:30', p.managerId, 'plan.create', { amount: p.total, code: p.code, name: cname(p.clientId), planId: p.id, clientId: p.clientId }));
+  return { users, doctors, clients, plans, notes, activity };
+}
+
+/* ---------------- бэкенды ---------------- */
+const DEMO_KEY = 'mk_demo_v2';
+const homeView = role => role === 'admin' ? 'dashboard' : 'today';
+async function logLoginOnce() {
+  const k = 'mk_login_' + state.me.id;
+  if (lsGet(k, '') === TODAY) return;
+  if (DB.activity.some(a => a.by === state.me.id && a.day === TODAY && a.action === 'login')) { lsSet(k, TODAY); return; }
+  lsSet(k, TODAY); await log('login');
+}
+const DemoBackend = {
+  mode: 'demo',
+  async init() {
+    const data = lsGet(DEMO_KEY, null) || seed();
+    Object.assign(DB, data); this.persist();
+    const meId = lsGet('mk_demo_me', null);
+    state.me = meId ? DB.users.find(u => u.id === meId) || null : null;
+    if (state.me) state.view = homeView(state.me.role);
+    state.loading = false; recalc(); render();
+  },
+  persist() { lsSet(DEMO_KEY, DB); },
+  async save(col, obj) { const i = DB[col].findIndex(x => x.id === obj.id); if (i >= 0) DB[col][i] = obj; else DB[col].push(obj); this.persist(); recalc(); render(); },
+  async remove(col, id) { DB[col] = DB[col].filter(x => x.id !== id); this.persist(); recalc(); render(); },
+  async loginAs(id) { state.me = DB.users.find(u => u.id === id); lsSet('mk_demo_me', id); state.view = homeView(state.me.role); state.todayScope = null; render(); await logLoginOnce(); },
+  async logout() { state.me = null; lsSet('mk_demo_me', null); render(); },
+  reset() { try { localStorage.removeItem(DEMO_KEY); } catch {} Object.assign(DB, seed()); this.persist(); recalc(); render(); toast(t('saved')); }
+};
+
+const FirebaseBackend = {
+  mode: 'firebase', unsubs: [],
+  loadScript: src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => no(new Error('load ' + src)); document.head.appendChild(s); }),
+  async init() {
+    const v = '10.12.2', base = `https://www.gstatic.com/firebasejs/${v}/`;
+    try {
+      await this.loadScript(base + 'firebase-app-compat.js');
+      await this.loadScript(base + 'firebase-auth-compat.js');
+      await this.loadScript(base + 'firebase-firestore-compat.js');
+      firebase.initializeApp(FIREBASE_CONFIG);
+      this.auth = firebase.auth(); this.fs = firebase.firestore();
+    } catch (e) { state.loading = false; state.error = t('fbError') + ': ' + e.message; render(); return; }
+    this.auth.onAuthStateChanged(async u => {
+      this.unsubs.forEach(f => f()); this.unsubs = [];
+      if (!u) { state.me = null; state.loading = false; render(); return; }
+      state.loading = true; render();
+      const ref = this.fs.collection('users').doc(u.uid);
+      let snap = await ref.get();
+      if (!snap.exists) { await ref.set({ name: u.displayName || u.email.split('@')[0], email: u.email, role: 'pending', createdAt: TODAY }); snap = await ref.get(); }
+      state.me = { id: u.uid, ...snap.data() };
+      if (state.me.role !== 'pending') {
+        state.view = homeView(state.me.role);
+        const cols = ['users', 'doctors', 'clients', 'plans', 'notes'];
+        if (state.me.role === 'admin') cols.push('activity');
+        for (const col of cols) {
+          const q = col === 'activity' ? this.fs.collection(col).where('day', '>=', addDays(TODAY, -90)) : this.fs.collection(col);
+          this.unsubs.push(q.onSnapshot(s => {
+            DB[col] = s.docs.map(d => ({ id: d.id, ...d.data() }));
+            if (col === 'users') { const fresh = DB.users.find(x => x.id === state.me.id); if (fresh) state.me = fresh; }
+            recalc(); state.loading = false; render();
+          }, err => { state.error = t('fbError') + ': ' + err.message; state.loading = false; render(); }));
+        }
+        logLoginOnce();
+      } else { state.loading = false; render(); }
+    });
+  },
+  async save(col, obj) { const { id, ...data } = obj; await this.fs.collection(col).doc(id).set(JSON.parse(JSON.stringify(data))); },
+  async remove(col, id) { await this.fs.collection(col).doc(id).delete(); },
+  async signIn(email, pass) { await this.auth.signInWithEmailAndPassword(email, pass); },
+  async signUp(name, email, pass) { const c = await this.auth.createUserWithEmailAndPassword(email, pass); await c.user.updateProfile({ displayName: name }); await this.fs.collection('users').doc(c.user.uid).set({ name, email, role: 'pending', createdAt: TODAY }); state.me = { id: c.user.uid, name, email, role: 'pending' }; render(); },
+  async logout() { await this.auth.signOut(); }
+};
+const B = FIREBASE_CONFIG ? FirebaseBackend : DemoBackend;
+const save = async (col, obj, msg) => { try { await B.save(col, obj); if (msg) toast(msg); } catch (e) { toast(e.message); } };
+
+/* ---------------- иконки ---------------- */
+const ICONS = {
+  dashboard: '<path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-6H3zM13 3v6h8V3z"/>',
+  plans: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 13h4M7 17h7"/>',
+  new: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  clients: '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-6"/>',
+  doctors: '<path d="M6 3v6a4 4 0 0 0 8 0V3M10 13v3a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="12" r="2"/>',
+  reports: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  users: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/>',
+  logout: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+  today: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  log: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  more: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+  note: '<path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/>',
+  ok: '<path d="M5 12l5 5L20 7"/>',
+};
+const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+
+/* ---------------- общие куски ---------------- */
+const pill = st => `<span class="pill st-${st}">${t('st_' + st)}</span>`;
+const roleLabel = r => t('r_' + r);
+function navItems() {
+  const items = ['today', 'dashboard', 'plans', 'new', 'clients', 'doctors', 'reports'];
+  if (!can('plan.create')) items.splice(items.indexOf('new'), 1);
+  if (can('users')) items.push('users');
+  if (can('log')) items.push('log');
+  return items;
+}
+const TAB_MAIN = ['today', 'plans', 'new', 'clients'];
+const navLabel = k => k === 'new' ? t('newPlan') : t(k);
+const overdueCount = () => livePlans().filter(p => C(p).status === 'overdue').length;
+const badgeFor = k => { const n = k === 'plans' ? overdueCount() : k === 'today' ? todayTasks(scopeNow()).filter(x => !x.done).length : 0; return n ? `<span class="badge">${n}</span>` : ''; };
+
+function toast(msg) {
+  let el = $('#toast'); if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.className = 'toast'; el.textContent = msg; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2400);
+}
+async function copyText(txt, sel) {
+  try { await navigator.clipboard.writeText(txt); toast(t('copied')); }
+  catch { const el = sel && $(sel); if (el) { el.focus(); el.select?.(); } toast(t('copyFail')); }
+}
+
+/* ---------------- рендер ---------------- */
+function render() {
+  document.documentElement.lang = lang === 'az' ? 'az' : 'ru';
+  const app = $('#app');
+  if (state.error && !state.me) { app.innerHTML = `<div class="login"><div class="lbox"><div class="logo"><i>MK</i>${t('app')}</div><p class="err">${esc(state.error)}</p></div></div>`; return; }
+  if (state.loading && !state.me) { app.innerHTML = `<div class="login"><p class="muted">${t('loading')}</p></div>`; return; }
+  if (!state.me) { app.innerHTML = viewLogin(); return; }
+  if (state.me.role === 'pending') { app.innerHTML = `<div class="login"><div class="lbox"><div class="logo"><i>MK</i>${t('app')}</div><h3>${t('pendingTitle')}</h3><p>${t('pendingText')}</p><p class="muted">${esc(state.me.email || '')}</p><button class="btn" data-act="logout">${ic('logout')}${t('logout')}</button></div></div>`; return; }
+
+  // не перерисовывать форму, в которой человек сейчас печатает
+  const typingIn = document.activeElement?.closest?.('#planForm, #payForm, #noteForm');
+  if (!$('.app')) app.innerHTML = shell();
+  else { $('.side').outerHTML = sideHtml(); $('.tabbar').outerHTML = tabHtml(); }
+  if (!(typingIn && typingIn.id === 'planForm' && state.view === 'new')) {
+    $('#top').innerHTML = topHtml();
+    $('#view').innerHTML = (VIEWS[state.view] || VIEWS.dashboard)();
+    if (state.view === 'new') updatePreview();
+  }
+  if (!(typingIn && (typingIn.id === 'payForm' || typingIn.id === 'noteForm'))) renderDrawer();
+}
+function shell() { return `<div class="app">${sideHtml()}<main class="main"><div id="top"></div><div id="view"></div></main>${tabHtml()}</div><div id="drawer"></div><div id="modal"></div>`; }
+function sideHtml() {
+  return `<aside class="side"><div class="logo"><i>MK</i>${t('app')}</div>
+  <nav class="nav">${navItems().map(k => `<button data-act="go" data-v="${k}" ${state.view === k ? 'aria-current="page"' : ''}>${ic(k)}<span>${navLabel(k)}</span>${badgeFor(k)}</button>`).join('')}</nav>
+  <div class="side-foot">
+    <div class="me"><div class="avatar">${esc(initials(state.me.name))}</div><div><b>${esc(state.me.name)}</b><small>${roleLabel(state.me.role)}</small></div></div>
+    <div style="display:flex;gap:8px;align-items:center">${langSeg()}<button class="btn sm ghost right" data-act="logout" title="${t('logout')}">${ic('logout')}</button></div>
+  </div></aside>`;
+}
+const langSeg = () => `<div class="seg" role="group" aria-label="Language"><button data-act="lang" data-l="ru" aria-pressed="${lang === 'ru'}">RU</button><button data-act="lang" data-l="az" aria-pressed="${lang === 'az'}">AZ</button></div>`;
+function tabHtml() {
+  const all = navItems(), main = all.filter(k => TAB_MAIN.includes(k)), rest = all.filter(k => !TAB_MAIN.includes(k));
+  return `<nav class="tabbar">${main.map(k => `<button data-act="go" data-v="${k}" ${state.view === k ? 'aria-current="page"' : ''}>${ic(k)}<span>${navLabel(k)}</span>${badgeFor(k)}</button>`).join('')}
+   <button data-act="moreSheet" ${rest.includes(state.view) ? 'aria-current="page"' : ''}>${ic('more')}<span>${rest.includes(state.view) ? navLabel(state.view) : t('more')}</span></button></nav>`;
+}
+function moreSheet() {
+  const rest = navItems().filter(k => !TAB_MAIN.includes(k));
+  $('#modal').innerHTML = `<div class="modal-wrap" data-act="closeModal"><div class="modal"><div class="sheet-list">${rest.map(k => `<button data-act="go" data-v="${k}" ${state.view === k ? 'aria-current="page"' : ''}>${ic(k)}${navLabel(k)}</button>`).join('')}</div></div></div>`;
+}
+function topHtml() {
+  const title = navLabel(state.view);
+  let acts = '';
+  if (state.view === 'doctors' && can('doctor.edit')) acts = `<button class="btn pri" data-act="docModal">${t('addDoctor')}</button>`;
+  if (state.view === 'clients' && can('client.edit')) acts = `<button class="btn pri" data-act="clientModal">${t('addClient')}</button>`;
+  if (state.view === 'users' && B.mode === 'demo') acts = `<button class="btn pri" data-act="userModal">${t('addUser')}</button>`;
+  if ((state.view === 'dashboard' || state.view === 'plans') && can('plan.create')) acts = `<button class="btn pri" data-act="go" data-v="new">${ic('new')}${t('newPlan')}</button>`;
+  const demo = B.mode === 'demo' ? `<div class="demo-bar">${t('demoNote')} ${can('users') ? `<button class="btn sm" data-act="resetDemo">${t('resetDemo')}</button>` : ''}</div>` : '';
+  const err = state.error ? `<div class="demo-bar" style="background:var(--bad-soft);color:var(--bad)">${esc(state.error)}</div>` : '';
+  return `${err}${demo}<div class="top"><h1>${title}</h1><span class="mob-only" style="gap:8px;align-items:center">${langSeg()}<button class="btn sm ghost" data-act="logout" title="${t('logout')}">${ic('logout')}</button></span>${acts}</div>`;
+}
+
+/* ---------- логин ---------- */
+function viewLogin() {
+  if (B.mode === 'demo') {
+    return `<div class="login"><div class="lbox"><div class="logo"><i>MK</i>${t('app')}</div><div style="display:flex;align-items:center"><h3>${t('loginTitle')}</h3><span class="right">${langSeg()}</span></div><p>${t('loginDemo')}</p>
+    <div class="ulist">${DB.users.map(u => `<button data-act="loginAs" data-id="${u.id}"><div class="avatar">${esc(initials(u.name))}</div><div><b>${esc(u.name)}</b><small class="muted" style="display:block;font-size:12px">${roleLabel(u.role)} · ${rightsText(u.role)}</small></div></button>`).join('')}</div></div></div>`;
+  }
+  const up = state.authMode === 'up';
+  return `<div class="login"><form class="lbox" id="authForm"><div class="logo"><i>MK</i>${t('app')}</div><div style="display:flex;align-items:center"><h3>${up ? t('signUp') : t('loginTitle')}</h3><span class="right">${langSeg()}</span></div>
+   ${up ? `<label class="f">${t('name')}<input class="inp" id="au_name" required></label>` : ''}
+   <label class="f">${t('email')}<input class="inp" id="au_email" type="email" required autocomplete="username"></label>
+   <label class="f">${t('password')}<input class="inp" id="au_pass" type="password" required minlength="6" autocomplete="${up ? 'new-password' : 'current-password'}"></label>
+   <p class="err" id="au_err" hidden></p>
+   <button class="btn pri" type="submit">${up ? t('signUp') : t('signIn')}</button>
+   <button class="btn ghost" type="button" data-act="authMode">${up ? t('haveAcc') : t('noAcc')}</button></form></div>`;
+}
+const rightsText = r => ({ admin: t('rightsAdmin'), manager: t('rightsManager'), accountant: t('rightsAccountant') }[r] || '');
+
+/* ---------- обзор ---------- */
+function viewDashboard() {
+  const live = livePlans();
+  const calcs = live.map(p => [p, C(p)]);
+  const open = calcs.filter(([, c]) => c.status === 'active' || c.status === 'overdue');
+  const portfolio = sum(open.map(([, c]) => c.remaining));
+  const mk = monthKey(TODAY);
+  const collected = sum(live.flatMap(p => p.payments || []).filter(x => monthKey(x.date) === mk).map(x => x.amount));
+  const expected = sum(live.flatMap(p => p.schedule).filter(r => monthKey(r.due) === mk).map(r => r.amount));
+  const overdue = calcs.filter(([, c]) => c.status === 'overdue');
+  const overdueAmt = sum(overdue.map(([, c]) => c.overdueAmt));
+  const financed = sum(live.map(p => p.total));
+
+  // 6 месяцев
+  const months = []; for (let i = 5; i >= 0; i--) { const d = parse(TODAY.slice(0,8) + '01'); d.setMonth(d.getMonth() - i); months.push(iso(d).slice(0, 7)); }
+  const series = months.map(m => ({ m,
+    exp: sum(live.flatMap(p => p.schedule).filter(r => monthKey(r.due) === m).map(r => r.amount)),
+    col: sum(live.flatMap(p => p.payments || []).filter(x => monthKey(x.date) === m).map(x => x.amount)) }));
+
+  const upcoming = calcs.flatMap(([p, c]) => c.rows.filter(r => r.rem > 0.004 && r.due >= TODAY && r.due <= addDays(TODAY, 7)).map(r => ({ p, r }))).sort((a, b) => a.r.due.localeCompare(b.r.due));
+  const overList = overdue.sort((a, b) => b[1].daysOver - a[1].daysOver);
+
+  const docRows = DB.doctors.map(d => {
+    const ps = calcs.filter(([p]) => p.doctorId === d.id);
+    return { d, n: ps.length, fin: sum(ps.map(([p]) => p.total)), rem: sum(ps.filter(([, c]) => c.status !== 'closed').map(([, c]) => c.remaining)), ov: sum(ps.map(([, c]) => c.overdueAmt)), ovn: ps.filter(([, c]) => c.status === 'overdue').length };
+  }).sort((a, b) => b.rem - a.rem);
+
+  const pctCol = expected ? Math.round(collected / expected * 100) : 0;
+  return `
+  <div class="kpis">
+    <div class="kpi"><span class="lbl">${t('portfolio')}</span><span class="val">${money(portfolio)}</span><span class="sub">${t('portfolioSub')} · ${open.length} ${t('cnt_plans')}</span></div>
+    <div class="kpi"><span class="lbl">${t('collectedMonth')}</span><span class="val">${money(collected)}</span><span class="sub">${pctCol}% ${t('ofExpected')} ${money(expected)}</span><div class="bar"><i style="width:${Math.min(100, pctCol)}%"></i></div></div>
+    <div class="kpi ${overdueAmt ? 'bad' : ''}"><span class="lbl">${t('overdue')}</span><span class="val">${money(overdueAmt)}</span><span class="sub">${overdue.length} ${t('overdueSub')}</span></div>
+    <div class="kpi"><span class="lbl">${t('activePlans')}</span><span class="val">${open.length}</span><span class="sub">${t('financed')} ${money(financed)}</span></div>
+  </div>
+  <div class="dash-grid">
+    <div class="panel chart"><h2>${t('collections')}</h2>${chartSvg(series)}<div class="legend"><span><i style="background:var(--surface-2);border:1px solid var(--line)"></i>${t('expected')}</span><span><i style="background:var(--accent)"></i>${t('collected')}</span></div></div>
+    <div class="panel"><h2>${t('overdueList')} ${overList.length ? `<span class="badge">${overList.length}</span>` : ''}<button class="lnk" data-act="planFilter" data-f="overdue">${t('showAll')}</button></h2>
+      ${overList.length ? `<div class="mini">${overList.slice(0, 6).map(([p, c]) => `<button data-act="open" data-id="${p.id}"><span class="nm">${esc(byId('clients', p.clientId)?.name)}</span><span class="amt bad num">${money(c.overdueAmt)}</span><span class="meta">${esc(docName(p.doctorId))}</span><span class="meta amt">${c.daysOver} ${t('daysShort')}</span></button>`).join('')}</div>` : `<div class="empty">${t('noOverdue')}</div>`}
+    </div>
+  </div>
+  <div class="dash-grid">
+    <div class="panel"><h2>${t('byDoctor')}</h2><div class="tw"><table><thead><tr><th>${t('doctor')}</th><th class="r">${t('plansCount')}</th><th class="r">${t('financed')}</th><th class="r">${t('remaining')}</th><th class="r">${t('overdue')}</th></tr></thead><tbody>
+      ${docRows.map(x => `<tr class="click" data-act="docPlans" data-id="${x.d.id}"><td><b>${esc(x.d.name)}</b><small>${esc(x.d.clinic || '')}</small></td><td class="r num">${x.n}</td><td class="r num">${money(x.fin)}</td><td class="r num">${money(x.rem)}</td><td class="r num" style="color:${x.ov ? 'var(--bad)' : 'var(--muted)'}">${x.ov ? money(x.ov) : '—'}</td></tr>`).join('')}
+    </tbody></table></div></div>
+    <div class="panel"><h2>${t('upcoming')}</h2>
+      ${upcoming.length ? `<div class="mini">${upcoming.slice(0, 7).map(({ p, r }) => { const dd = diffDays(TODAY, r.due); return `<button data-act="open" data-id="${p.id}"><span class="nm">${esc(byId('clients', p.clientId)?.name)}</span><span class="amt num">${money(r.rem)}</span><span class="meta">${fd(r.due)}</span><span class="meta amt">${dd === 0 ? t('today') : `${t('inDays')} ${dd} ${t('daysShort')}`}</span></button>`; }).join('')}</div>` : `<div class="empty">${t('noUpcoming')}</div>`}
+    </div>
+  </div>`;
+}
+function chartSvg(series) {
+  const W = 600, H = 230, L = 56, R = 8, T = 12, Bm = 28;
+  const max = Math.max(1, ...series.flatMap(s => [s.exp, s.col]));
+  const step = niceStep(max / 4); const top = Math.ceil(max / step) * step;
+  const y = v => T + (H - T - Bm) * (1 - v / top);
+  const gw = (W - L - R) / series.length, bw = Math.min(26, gw * 0.3);
+  const ticks = []; for (let v = 0; v <= top + 0.01; v += step) ticks.push(v);
+  const kfmt = v => v >= 1000 ? (v / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + 'k' : String(v);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('collections')}">
+   ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono, monospace">${kfmt(v)}</text>`).join('')}
+   ${series.map((s, i) => { const cx = L + gw * i + gw / 2; const lbl = parse(s.m + '-01').toLocaleDateString(locale(), { month: 'short' });
+     return `<rect x="${cx - bw - 2}" y="${y(s.exp)}" width="${bw}" height="${y(0) - y(s.exp)}" rx="3" fill="var(--surface-2)" stroke="var(--line)"><title>${t('expected')}: ${money(s.exp)}</title></rect>
+     <rect x="${cx + 2}" y="${y(s.col)}" width="${bw}" height="${y(0) - y(s.col)}" rx="3" fill="var(--accent)"><title>${t('collected')}: ${money(s.col)}</title></rect>
+     <text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="12" fill="${i === series.length - 1 ? 'var(--fg)' : 'var(--muted)'}" font-weight="${i === series.length - 1 ? 600 : 400}">${esc(lbl)}</text>`; }).join('')}
+  </svg>`;
+}
+function niceStep(x) { const p = Math.pow(10, Math.floor(Math.log10(x || 1))); const f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+
+/* ---------- рассрочки ---------- */
+function filteredPlans() {
+  const q = state.planSearch.trim().toLowerCase();
+  return DB.plans.filter(p => {
+    const c = C(p);
+    if (state.planFilter !== 'all' && c.status !== state.planFilter) return false;
+    if (state.planDoctor && p.doctorId !== state.planDoctor) return false;
+    if (q) { const cl = byId('clients', p.clientId) || {}; const hay = [cl.name, cl.phone, (cl.phone || '').replace(/\D/g, ''), p.code, p.procedure].join(' ').toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  }).sort((a, b) => { const o = { overdue: 0, active: 1, closed: 2, cancelled: 3 }; const ca = C(a), cb = C(b); return (o[ca.status] - o[cb.status]) || (cb.daysOver - ca.daysOver) || ((ca.next?.due || '9') .localeCompare(cb.next?.due || '9')); });
+}
+function viewPlans() {
+  const counts = { all: DB.plans.length }; DB.plans.forEach(p => { const s = C(p).status; counts[s] = (counts[s] || 0) + 1; });
+  return `<div class="toolbar">
+    <input class="inp" id="planSearch" type="search" placeholder="${t('search')}" value="${esc(state.planSearch)}">
+    <select class="inp" id="planDoctor"><option value="">${t('allDoctors')}</option>${DB.doctors.map(d => `<option value="${d.id}" ${state.planDoctor === d.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>
+  </div>
+  <div class="chips" style="margin-bottom:14px">${['all', 'overdue', 'active', 'closed', 'cancelled'].map(f => `<button class="chip" data-act="planFilter" data-f="${f}" aria-pressed="${state.planFilter === f}">${f === 'all' ? t('all') : t('st_' + f)} <span class="num">${counts[f] || 0}</span></button>`).join('')}</div>
+  <div id="plansList">${plansListHtml()}</div>`;
+}
+function plansListHtml() {
+  const list = filteredPlans();
+  if (!list.length) return `<div class="list"><div class="empty"><b>${t('nothing')}</b>${t('nothingSub')}</div></div>`;
+  return `<div class="list"><div class="row head"><span class="c-code">${t('code')}</span><span>${t('client')}</span><span class="c-doc">${t('doctor')}</span><span class="r c-total">${t('total')}</span><span class="c-prog">${t('paid')}</span><span class="r c-rem">${t('remaining')}</span><span class="c-st">${t('status')}</span></div>
+  ${list.map(p => { const c = C(p); const cl = byId('clients', p.clientId) || {};
+    return `<button class="row ${c.status === 'overdue' ? 'overdue' : ''}" data-act="open" data-id="${p.id}">
+     <span class="code c-code">${esc(p.code)}</span>
+     <span><b>${esc(cl.name)}</b><small>${esc(cl.phone || '')} · ${esc(p.procedure)}</small></span>
+     <span class="c-doc">${esc(docName(p.doctorId))}</span>
+     <span class="r num c-total">${money(p.total)}</span>
+     <span class="c-prog"><div class="bar"><i style="width:${c.pct}%;${c.status === 'overdue' ? 'background:var(--bad)' : ''}"></i></div><small class="num">${money(c.paidTotal)}${c.next && c.status !== 'cancelled' ? ` · <span class="c-next">${t('nextDue')} ${fd(c.next.due)}</span>` : ''}</small></span>
+     <span class="r num c-rem"><b>${money(c.remaining)}</b>${c.overdueAmt ? `<small style="color:var(--bad)">−${money(c.overdueAmt)}</small>` : ''}</span>
+     <span class="c-st">${pill(c.status)}</span></button>`; }).join('')}</div>`;
+}
+
+/* ---------- новая рассрочка ---------- */
+function viewNew() {
+  if (!can('plan.create')) return `<div class="panel">${t('noPerm')}</div>`;
+  const managers = DB.users.filter(u => u.role === 'manager' || u.role === 'admin');
+  return `<div class="np"><form id="planForm" autocomplete="off">
+   <fieldset><legend>${t('clientSec')}</legend>
+     <div class="grid2"><label class="f">${t('clientName')}<input class="inp" id="np_name" list="clientList" required></label>
+     <label class="f">${t('phone')}<input class="inp" id="np_phone" type="tel" placeholder="+994 50 000 00 00" required></label></div>
+     <datalist id="clientList">${DB.clients.map(c => `<option value="${esc(c.name)}">${esc(c.phone)}</option>`).join('')}</datalist>
+   </fieldset>
+   <fieldset><legend>${t('dealSec')}</legend>
+     <div class="grid2"><label class="f">${t('doctor')}<select class="inp" id="np_doc" required><option value="">—</option>${DB.doctors.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('')}</select></label>
+     <label class="f">${t('procedure')}<input class="inp" id="np_proc" placeholder="${t('procedurePh')}" required></label></div>
+     <label class="f">${t('manager')}<select class="inp" id="np_mgr">${managers.map(u => `<option value="${u.id}" ${u.id === state.me.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></label>
+   </fieldset>
+   <fieldset><legend>${t('termsSec')}</legend>
+     <div class="grid3"><label class="f">${t('totalSum')}<input class="inp num" id="np_total" type="number" min="1" step="0.01" inputmode="decimal" value="6000" required></label>
+     <label class="f">${t('down')}<input class="inp num" id="np_down" type="number" min="0" step="0.01" inputmode="decimal" value="1200"></label>
+     <label class="f">${t('months')}<select class="inp" id="np_months">${[1,2,3,4,5,6,8,9,10,12,15,18,24].map(m => `<option ${m === 6 ? 'selected' : ''}>${m}</option>`).join('')}</select></label></div>
+     <label class="f">${t('startDate')}<input class="inp" id="np_start" type="date" value="${TODAY}" required></label>
+     <label class="f">${t('note')}<textarea class="inp" id="np_note"></textarea></label>
+   </fieldset>
+   <p class="err" id="np_err" hidden></p>
+   <div><button class="btn pri" type="submit">${t('create')}</button></div>
+  </form>
+  <div class="panel preview" id="schedPreview"></div></div>`;
+}
+function readPlanForm() {
+  const v = id => $('#' + id)?.value ?? '';
+  return { name: v('np_name').trim(), phone: v('np_phone').trim(), doctorId: v('np_doc'), procedure: v('np_proc').trim(), managerId: v('np_mgr'), total: r2(v('np_total')), down: r2(v('np_down')), months: +v('np_months'), start: v('np_start') || TODAY, note: v('np_note').trim() };
+}
+function updatePreview() {
+  const box = $('#schedPreview'); if (!box) return;
+  const f = readPlanForm();
+  if (!(f.total > 0) || f.down >= f.total) { box.innerHTML = `<div class="empty">${t('errSum')}</div>`; return; }
+  const s = buildSchedule(f.total, f.down, f.months, f.start);
+  const mon = s.find(r => r.n === 1)?.amount || 0;
+  box.innerHTML = `<div class="monthly"><small>${t('monthly')}</small><span class="val">${money(mon)}</span><small>${f.months} × · ${t('down')} ${money(f.down)}</small></div>
+   <h2>${t('schedule')}</h2><div class="sched"><table><thead><tr><th>#</th><th>${t('due')}</th><th class="r">${t('amount')}</th></tr></thead><tbody>
+   ${s.map(r => `<tr><td class="num">${r.n === 0 ? '—' : r.n}</td><td>${r.n === 0 ? t('downRow') + ' · ' : ''}${fd(r.due)}</td><td class="r num">${money(r.amount)}</td></tr>`).join('')}
+   <tr><td></td><td><b>${t('total')}</b></td><td class="r num"><b>${money(f.total)}</b></td></tr></tbody></table></div>`;
+}
+async function submitPlan() {
+  const f = readPlanForm(); const err = $('#np_err');
+  const fail = m => { err.textContent = m; err.hidden = false; };
+  if (!f.name || !f.phone) return fail(t('errClient'));
+  if (!f.doctorId) return fail(t('errDoctor'));
+  if (!(f.total > 0) || f.down >= f.total || f.down < 0) return fail(t('errSum'));
+  const digits = f.phone.replace(/\D/g, '');
+  let client = DB.clients.find(c => (c.phone || '').replace(/\D/g, '') === digits);
+  if (!client) { client = { id: uid(), name: f.name, phone: f.phone, createdAt: TODAY }; await save('clients', client); }
+  const n = DB.plans.reduce((m, p) => Math.max(m, +String(p.code).replace(/\D/g, '') || 0), 0) + 1;
+  const plan = { id: uid(), code: 'R-' + String(n).padStart(4, '0'), clientId: client.id, doctorId: f.doctorId, managerId: f.managerId || state.me.id, procedure: f.procedure,
+    total: f.total, down: f.down, months: f.months, startDate: f.start, schedule: buildSchedule(f.total, f.down, f.months, f.start), payments: [], note: f.note, cancelled: false, createdAt: TODAY, createdBy: state.me.id };
+  state.view = 'plans'; state.planFilter = 'all'; state.planSearch = '';
+  document.activeElement?.blur?.();
+  await save('plans', plan, t('created'));
+  await log('plan.create', { amount: plan.total, code: plan.code, name: client.name, planId: plan.id, clientId: client.id });
+  state.drawer = plan.id; render();
+}
+
+/* ---------- карточка рассрочки ---------- */
+function renderDrawer() {
+  const box = $('#drawer'); if (!box) return;
+  const p = state.drawer && byId('plans', state.drawer);
+  if (!p) { box.innerHTML = ''; return; }
+  const c = C(p); const cl = byId('clients', p.clientId) || {};
+  const open = c.status === 'active' || c.status === 'overdue';
+  const remind = reminderText(p, c);
+  const defAmt = c.overdueAmt > 0 ? c.overdueAmt : (c.next?.rem || 0);
+  const conf = state.confirm;
+  box.innerHTML = `<div class="scrim" data-act="closeDrawer"><aside class="drawer" role="dialog" aria-modal="true" aria-label="${esc(cl.name)}">
+   <div class="dhead"><div style="min-width:0"><div class="num muted" style="font-size:12px">${esc(p.code)}</div><h2>${esc(cl.name)}</h2><div class="sub">${esc(cl.phone || '')} · ${esc(p.procedure)}</div><div style="margin-top:8px">${pill(c.status)} ${c.daysOver ? `<span class="muted" style="font-size:12px;margin-left:6px">${c.daysOver} ${t('daysShort')}</span>` : ''}</div></div>
+     <button class="btn sm ghost right" data-act="closeDrawer" aria-label="close">${ic('close')}</button></div>
+   <div class="dbody">
+     <div class="facts"><div><span>${t('total')}</span><b>${money(p.total)}</b></div><div><span>${t('paid')}</span><b>${money(c.paidTotal)}</b></div><div><span>${t('remaining')}</span><b>${money(c.remaining)}</b></div><div class="${c.overdueAmt ? 'bad' : ''}"><span>${t('overdue')}</span><b>${c.overdueAmt ? money(c.overdueAmt) : '—'}</b></div></div>
+     <div class="bar" style="height:8px"><i style="width:${c.pct}%"></i></div>
+
+     ${open && can('pay.add') ? `<div class="panel"><h2>${t('addPayment')}</h2><form id="payForm" class="payform">
+        <label class="f">${t('amount')}<input class="inp num" id="pf_amt" type="number" step="0.01" min="0.01" inputmode="decimal" value="${defAmt}"></label>
+        <label class="f">${t('payDate')}<input class="inp" id="pf_date" type="date" value="${TODAY}"></label>
+        <label class="f">${t('method')}<select class="inp" id="pf_method">${['cash', 'card', 'transfer'].map(m => `<option value="${m}">${t('m_' + m)}</option>`).join('')}</select></label>
+        <label class="f full">${t('note')}<input class="inp" id="pf_note"></label>
+        <p class="err full" id="pf_err" hidden></p>
+        <div class="full"><button class="btn pri" type="submit">${t('addPayment')}</button></div></form></div>` : ''}
+
+     <div class="panel"><h2>${t('notes')}</h2>
+       <form id="noteForm" class="noteform">
+         <label class="f">${t('noteType')}<select class="inp" id="nf_type">${['call', 'whatsapp', 'promise', 'noanswer', 'other'].map(k => `<option value="${k}">${t('n_' + k)}</option>`).join('')}</select></label>
+         <label class="f">${t('noteText')}<input class="inp" id="nf_text" maxlength="500"></label>
+         <label class="f" id="nf_promWrap" hidden>${t('promiseDate')}<input class="inp" type="date" id="nf_prom" min="${TODAY}"></label>
+         <p class="err full" id="nf_err" hidden></p>
+         <div class="full"><button class="btn sm pri" type="submit">${t('addNoteBtn')}</button></div>
+       </form>
+       ${clientNotes(p.clientId).length ? `<div class="timeline">${clientNotes(p.clientId).map(n => `<div class="tl"><span class="when">${n.day === TODAY ? hhmm(n.at) : fd(n.day).slice(0, 5)}</span><div class="txt"><span class="ntype ${n.type}">${t('n_' + n.type)}</span>${esc(n.text)}${n.promiseDate ? ` <b style="color:var(--warn)">→ ${fd(n.promiseDate)}</b>` : ''}<div class="who">${esc(userName(n.by))} · ${fd(n.day)}</div></div></div>`).join('')}</div>` : `<div class="empty" style="padding:14px">${t('noNotes')}</div>`}
+     </div>
+
+     <div class="panel"><h2>${t('schedule')}</h2><div class="tw"><table><thead><tr><th>#</th><th>${t('due')}</th><th class="r">${t('amount')}</th><th class="r">${t('paid')}</th><th>${t('status')}</th></tr></thead><tbody>
+       ${c.rows.map(r => `<tr><td class="num">${r.n === 0 ? '—' : r.n}</td><td>${r.n === 0 ? `<small>${t('downRow')}</small>` : ''}${fd(r.due)}</td><td class="r num">${money(r.amount)}</td><td class="r num">${r.paid ? money(r.paid) : '—'}</td><td>${p.cancelled ? '' : pill(r.st)}</td></tr>`).join('')}
+     </tbody></table></div></div>
+
+     <div class="panel"><h2>${t('payments')}</h2>
+       ${(p.payments || []).length ? `<div class="tw"><table><thead><tr><th>${t('payDate')}</th><th class="r">${t('amount')}</th><th>${t('method')}</th><th>${t('created_by')}</th><th></th></tr></thead><tbody>
+        ${[...p.payments].sort((a, b) => b.date.localeCompare(a.date)).map(x => `<tr><td>${fd(x.date)}${x.note ? `<small>${esc(x.note)}</small>` : ''}</td><td class="r num">${money(x.amount)}</td><td>${t('m_' + x.method)}</td><td><small style="color:var(--fg)">${esc(userName(x.by))}</small></td>
+        <td class="r">${can('pay.delete') ? (conf === 'pay:' + x.id ? `<button class="btn sm danger" data-act="delPayYes" data-id="${x.id}">${t('confirmDel')}</button>` : `<button class="btn sm ghost" data-act="delPay" data-id="${x.id}">${t('del')}</button>`) : ''}</td></tr>`).join('')}
+       </tbody></table></div>` : `<div class="empty">${t('noPayments')}</div>`}
+     </div>
+
+     ${open ? `<div class="panel"><h2>${t('reminder')}<button class="lnk" data-act="copyRemind">${t('copy')}</button></h2><textarea class="inp" id="remindTxt" readonly>${esc(remind)}</textarea></div>` : ''}
+
+     <div class="panel"><h2>${t('details')}</h2><dl class="kv">
+       <dt>${t('doctor')}</dt><dd>${esc(docName(p.doctorId))}</dd>
+       <dt>${t('manager')}</dt><dd>${esc(userName(p.managerId))}</dd>
+       <dt>${t('startDate')}</dt><dd>${fd(p.startDate)}</dd>
+       <dt>${t('months')}</dt><dd>${p.months}</dd>
+       ${p.note ? `<dt>${t('note')}</dt><dd>${esc(p.note)}</dd>` : ''}
+     </dl></div>
+
+     ${can('plan.cancel') ? `<div>${p.cancelled ? `<button class="btn" data-act="restorePlan">${t('restorePlan')}</button>` : conf === 'cancel' ? `<p class="muted">${t('confirmCancel')}</p><div style="display:flex;gap:8px"><button class="btn danger" data-act="cancelYes">${t('yes')}</button><button class="btn" data-act="confirmOff">${t('cancel')}</button></div>` : `<button class="btn danger" data-act="cancelPlan">${t('cancelPlan')}</button>`}</div>` : ''}
+   </div></aside></div>`;
+}
+async function submitPayment() {
+  const p = byId('plans', state.drawer); if (!p) return;
+  const amt = r2($('#pf_amt').value), err = $('#pf_err');
+  const fail = m => { err.textContent = m; err.hidden = false; };
+  if (!(amt > 0)) return fail(t('errAmount'));
+  if (amt > C(p).remaining + 0.004) return fail(t('errOver') + ' (' + money(C(p).remaining) + ')');
+  const pay = { id: uid(), amount: amt, date: $('#pf_date').value || TODAY, method: $('#pf_method').value, note: $('#pf_note').value.trim(), by: state.me.id, at: new Date().toISOString() };
+  document.activeElement?.blur?.();
+  await save('plans', { ...p, payments: [...(p.payments || []), pay] }, t('payAdded'));
+  await log('pay.add', { amount: amt, code: p.code, name: byId('clients', p.clientId)?.name || '', planId: p.id, clientId: p.clientId });
+}
+async function submitNote() {
+  const p = byId('plans', state.drawer); if (!p) return;
+  const type = $('#nf_type').value, text = $('#nf_text').value.trim(), prom = $('#nf_prom').value, err = $('#nf_err');
+  const fail = m => { err.textContent = m; err.hidden = false; };
+  if (!text && type !== 'noanswer') return fail(t('errNote'));
+  if (type === 'promise' && !prom) return fail(t('errPromise'));
+  document.activeElement?.blur?.();
+  await addNote(p.clientId, p.id, type, text, prom);
+}
+
+/* ---------- клиенты ---------- */
+function viewClients() {
+  const q = (state.clientSearch || '').toLowerCase();
+  const rows = DB.clients.map(cl => {
+    const ps = DB.plans.filter(p => p.clientId === cl.id);
+    const live = ps.filter(p => !p.cancelled);
+    return { cl, ps, debt: sum(live.map(p => C(p).remaining)), ov: sum(live.map(p => C(p).overdueAmt)), docs: [...new Set(ps.map(p => docName(p.doctorId)))].join(', ') };
+  }).filter(x => !q || (x.cl.name + ' ' + x.cl.phone + ' ' + (x.cl.phone || '').replace(/\D/g, '')).toLowerCase().includes(q))
+    .sort((a, b) => b.ov - a.ov || b.debt - a.debt);
+  return `<div class="toolbar"><input class="inp" id="clientSearch" type="search" placeholder="${t('search')}" value="${esc(state.clientSearch || '')}"></div>
+  <div class="panel" style="padding:6px 14px"><div class="tw"><table><thead><tr><th>${t('client')}</th><th>${t('doctor')}</th><th class="r">${t('plansCount')}</th><th class="r">${t('debt')}</th><th class="r">${t('overdue')}</th><th>${t('lastNote')}</th><th></th></tr></thead><tbody>
+   ${rows.length ? rows.map(x => { const ln = clientNotes(x.cl.id)[0]; return `<tr class="click" data-act="clientPlans" data-id="${x.cl.id}"><td><b>${esc(x.cl.name)}</b><small>${esc(x.cl.phone)}</small></td><td>${esc(x.docs || '—')}</td><td class="r num">${x.ps.length}</td><td class="r num">${x.debt ? money(x.debt) : '—'}</td><td class="r num" style="color:${x.ov ? 'var(--bad)' : 'var(--muted)'}">${x.ov ? money(x.ov) : '—'}</td>
+   <td style="max-width:280px;min-width:180px">${ln ? `<span class="ntype ${ln.type}">${t('n_' + ln.type)}</span>${esc((ln.text || '').slice(0, 60))}<small>${esc(userName(ln.by))} · ${fd(ln.day)}</small>` : '<span class="muted">—</span>'}</td>
+   <td class="r">${can('client.edit') ? `<button class="btn sm ghost" data-act="clientModal" data-id="${x.cl.id}">${t('edit')}</button>` : ''}</td></tr>`; }).join('') : `<tr><td colspan="7"><div class="empty">${t('nothing')}</div></td></tr>`}
+  </tbody></table></div></div>`;
+}
+
+/* ---------- врачи ---------- */
+function viewDoctors() {
+  return `<div class="cards">${DB.doctors.map(d => {
+    const ps = livePlans().filter(p => p.doctorId === d.id); const cs = ps.map(C);
+    const openN = cs.filter(c => c.status === 'active' || c.status === 'overdue').length;
+    const ov = sum(cs.map(c => c.overdueAmt));
+    return `<div class="dcard"><div style="display:flex;gap:12px;align-items:flex-start"><div class="avatar" style="width:40px;height:40px">${esc(initials(d.name.replace(/^Dr\.?\s*/i, '')))}</div><div style="min-width:0;flex:1"><h3>${esc(d.name)}</h3><div class="spec">${esc(d.specialty || '')}${d.clinic ? ' · ' + esc(d.clinic) : ''}</div><div class="spec num">${esc(d.phone || '')}</div></div>
+      ${can('doctor.edit') ? `<button class="btn sm ghost" data-act="docModal" data-id="${d.id}">${t('edit')}</button>` : ''}</div>
+      <div class="dstats"><div><span>${t('sent')}</span><b class="num">${new Set(ps.map(p => p.clientId)).size}</b></div><div><span>${t('inWork')}</span><b class="num">${openN}</b></div>
+      <div><span>${t('financed')}</span><b class="num">${money(sum(ps.map(p => p.total)))}</b></div><div><span>${t('remaining')}</span><b class="num">${money(sum(cs.filter(c => c.status !== 'closed').map(c => c.remaining)))}</b></div>
+      <div><span>${t('collected')}</span><b class="num">${money(sum(cs.map(c => c.paidTotal)))}</b></div><div><span>${t('overdue')}</span><b class="num" style="color:${ov ? 'var(--bad)' : 'inherit'}">${ov ? money(ov) : '—'}</b></div></div>
+      <button class="btn sm" data-act="docPlans" data-id="${d.id}">${t('openPlans')}</button></div>`; }).join('')}</div>`;
+}
+
+/* ---------- отчёты ---------- */
+function reportData() {
+  const { repFrom: f, repTo: to } = state;
+  const pays = DB.plans.filter(p => !p.cancelled).flatMap(p => (p.payments || []).filter(x => x.date >= f && x.date <= to).map(x => ({ ...x, p })));
+  const newPlans = DB.plans.filter(p => !p.cancelled && p.startDate >= f && p.startDate <= to);
+  return { pays: pays.sort((a, b) => b.date.localeCompare(a.date)), newPlans };
+}
+function viewReports() {
+  const { pays, newPlans } = reportData();
+  const total = sum(pays.map(x => x.amount));
+  const byDoc = DB.doctors.map(d => ({ d, col: sum(pays.filter(x => x.p.doctorId === d.id).map(x => x.amount)), n: newPlans.filter(p => p.doctorId === d.id).length, fin: sum(newPlans.filter(p => p.doctorId === d.id).map(p => p.total)), ov: sum(livePlans().filter(p => p.doctorId === d.id).map(p => C(p).overdueAmt)) }));
+  const mgrs = DB.users.filter(u => u.role !== 'pending');
+  const byMgr = mgrs.map(u => ({ u, n: newPlans.filter(p => p.managerId === u.id).length, fin: sum(newPlans.filter(p => p.managerId === u.id).map(p => p.total)), acc: sum(pays.filter(x => x.by === u.id).map(x => x.amount)), port: sum(livePlans().filter(p => p.managerId === u.id).map(p => C(p).remaining)) })).filter(x => x.n || x.acc || x.port);
+  const byMethod = ['cash', 'card', 'transfer'].map(m => [m, sum(pays.filter(x => x.method === m).map(x => x.amount))]);
+  return `<div class="toolbar">
+    <label class="f" style="flex:0 1 160px">${t('from')}<input class="inp" type="date" id="repFrom" value="${state.repFrom}"></label>
+    <label class="f" style="flex:0 1 160px">${t('to')}<input class="inp" type="date" id="repTo" value="${state.repTo}"></label>
+    <div class="chips" style="align-self:flex-end;padding-bottom:4px"><button class="chip" data-act="repPreset" data-p="m">${t('thisMonth')}</button><button class="chip" data-act="repPreset" data-p="pm">${t('lastMonth')}</button><button class="chip" data-act="repPreset" data-p="y">${t('thisYear')}</button></div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><span class="lbl">${t('collected')}</span><span class="val">${money(total)}</span><span class="sub">${pays.length} ${t('paymentsCount').toLowerCase()}</span></div>
+    ${byMethod.map(([m, v]) => `<div class="kpi"><span class="lbl">${t('m_' + m)}</span><span class="val">${money(v)}</span><span class="sub">${total ? Math.round(v / total * 100) : 0}%</span></div>`).join('')}
+  </div>
+  <div class="dash-grid">
+    <div class="panel"><h2>${t('byDoctor')}</h2><div class="tw"><table><thead><tr><th>${t('doctor')}</th><th class="r">${t('collected')}</th><th class="r">${t('newPlan')}</th><th class="r">${t('total')}</th><th class="r">${t('overdue')}</th></tr></thead><tbody>
+      ${byDoc.map(x => `<tr><td>${esc(x.d.name)}</td><td class="r num">${money(x.col)}</td><td class="r num">${x.n}</td><td class="r num">${money(x.fin)}</td><td class="r num" style="color:${x.ov ? 'var(--bad)' : 'var(--muted)'}">${x.ov ? money(x.ov) : '—'}</td></tr>`).join('')}
+    </tbody></table></div></div>
+    <div class="panel"><h2>${t('byManager')}</h2><div class="tw"><table><thead><tr><th>${t('name')}</th><th class="r">${t('newPlan')}</th><th class="r">${t('total')}</th><th class="r">${t('collected')}</th><th class="r">${t('portfolio')}</th></tr></thead><tbody>
+      ${byMgr.map(x => `<tr><td>${esc(x.u.name)}<small>${roleLabel(x.u.role)}</small></td><td class="r num">${x.n}</td><td class="r num">${money(x.fin)}</td><td class="r num">${money(x.acc)}</td><td class="r num">${money(x.port)}</td></tr>`).join('')}
+    </tbody></table></div></div>
+  </div>
+  <div class="panel"><h2>${t('paymentsList')}<span class="right" style="display:flex;gap:6px"><button class="btn sm" data-act="copyCsv">${ic('copy')}${t('copyCsv')}</button><button class="btn sm" data-act="exportCsv">${t('exportCsv')}</button></span></h2>
+    ${pays.length ? `<div class="tw"><table><thead><tr><th>${t('payDate')}</th><th>${t('code')}</th><th>${t('client')}</th><th>${t('doctor')}</th><th class="r">${t('amount')}</th><th>${t('method')}</th><th>${t('created_by')}</th></tr></thead><tbody>
+     ${pays.map(x => `<tr class="click" data-act="open" data-id="${x.p.id}"><td>${fd(x.date)}</td><td class="num muted">${esc(x.p.code)}</td><td>${esc(byId('clients', x.p.clientId)?.name)}</td><td>${esc(docName(x.p.doctorId))}</td><td class="r num">${money(x.amount)}</td><td>${t('m_' + x.method)}</td><td>${esc(userName(x.by))}</td></tr>`).join('')}
+    </tbody></table></div>` : `<div class="empty">${t('noData')}</div>`}
+  </div>`;
+}
+function reportCsv() {
+  const { pays } = reportData();
+  const head = [t('payDate'), t('code'), t('client'), t('phone'), t('doctor'), t('procedure'), t('amount'), t('method'), t('created_by')];
+  const q = v => /[;"\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+  return [head, ...pays.map(x => { const cl = byId('clients', x.p.clientId) || {}; return [fd(x.date), x.p.code, cl.name, cl.phone, docName(x.p.doctorId), x.p.procedure, String(x.amount).replace('.', ','), t('m_' + x.method), userName(x.by)]; })].map(r => r.map(q).join(';')).join('\n');
+}
+
+/* ---------- сотрудники ---------- */
+function viewUsers() {
+  if (!can('users')) return `<div class="panel">${t('noPerm')}</div>`;
+  const list = [...DB.users].sort((a, b) => (a.role === 'pending' ? -1 : 0) - (b.role === 'pending' ? -1 : 0));
+  return `<div class="panel" style="padding:6px 14px"><div class="tw"><table><thead><tr><th>${t('name')}</th><th>${t('email')}</th><th>${t('role')}</th><th>${t('rights')}</th></tr></thead><tbody>
+   ${list.map(u => `<tr><td><b>${esc(u.name)}</b></td><td class="muted">${esc(u.email || '')}</td><td>${u.id === state.me.id ? roleLabel(u.role) : `<select class="inp" data-role="${u.id}" style="min-width:150px">${['pending', 'manager', 'accountant', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleLabel(r)}</option>`).join('')}</select>`}</td><td class="muted" style="font-size:12px">${u.role === 'pending' ? pill('pending') : rightsText(u.role)}</td></tr>`).join('')}
+  </tbody></table></div></div>`;
+}
+
+/* ---------- сегодня: кому звонить ---------- */
+const scopeNow = () => state.todayScope || (state.me?.role === 'manager' ? 'mine' : 'all');
+function todayTasks(scope) {
+  const soonTo = addDays(TODAY, 3), out = [];
+  livePlans().forEach(p => {
+    if (scope === 'mine' && p.managerId !== state.me.id) return;
+    const c = C(p); if (c.status === 'closed') return;
+    let kind = null, amount = 0, due = null;
+    if (c.overdueAmt > 0) { kind = 'overdue'; amount = c.overdueAmt; due = c.rows.find(r => r.st === 'overdue').due; }
+    else if (c.next && c.next.due === TODAY) { kind = 'today'; amount = c.next.rem; due = c.next.due; }
+    else if (c.next && c.next.due > TODAY && c.next.due <= soonTo) { kind = 'soon'; amount = c.next.rem; due = c.next.due; }
+    if (!kind) return;
+    const notes = clientNotes(p.clientId);
+    const last = notes[0];
+    const done = notes.some(n => n.day === TODAY);
+    const pr = notes.find(n => n.type === 'promise' && n.promiseDate);
+    const promise = pr && !(p.payments || []).some(x => x.date >= pr.day) ? pr : null;
+    out.push({ p, c, cl: byId('clients', p.clientId) || {}, kind, amount, due, last, done, promise });
+  });
+  return out;
+}
+function reminderText(p, c) {
+  const cl = byId('clients', p.clientId) || {};
+  const over = c.overdueAmt > 0, tgt = c.next;
+  return (over ? t('remindOver') : t('remindTpl')).replace('{name}', cl.name || '').replace('{proc}', p.procedure || '').replace('{amount}', money(over ? c.overdueAmt : (tgt?.rem || 0))).replace('{date}', fd(tgt?.due));
+}
+const noteLine = n => `<span class="ntype ${n.type}">${t('n_' + n.type)}</span>${esc(n.text || '')} <span class="muted" style="font-size:12px">— ${esc(userName(n.by))}, ${n.day === TODAY ? t('today') : fd(n.day)} ${hhmm(n.at)}</span>`;
+function taskCard(x) {
+  const { p, c, cl, kind, amount, due, last, done, promise } = x;
+  const dd = diffDays(TODAY, due);
+  const when = kind === 'overdue' ? `${t('overdueDays')} ${c.daysOver} ${t('daysShort')}` : dd === 0 ? t('dueToday') : dd === 1 ? t('dueTomorrow') : fd(due);
+  let promLine = '';
+  if (promise) promLine = promise.promiseDate < TODAY ? `<div class="line bad">${t('promiseBroken')} ${fd(promise.promiseDate)}</div>` : `<div class="line warn">${t('promiseBy')} ${fd(promise.promiseDate)}</div>`;
+  const cls = done ? 'done' : kind === 'overdue' ? 'bad' : kind === 'today' ? 'warn' : 'info';
+  return `<div class="task ${cls}">
+   <div style="min-width:0"><div class="nm">${esc(cl.name)}</div><div class="meta num">${esc(cl.phone || '')}</div><div class="meta">${esc(docName(p.doctorId))} · ${esc(p.procedure)} · ${esc(p.code)}${scopeNow() === 'all' ? ' · ' + esc(userName(p.managerId)) : ''}</div></div>
+   <div class="amt"><b style="${kind === 'overdue' ? 'color:var(--bad)' : ''}">${money(amount)}</b><div class="meta">${when}</div></div>
+   ${promLine}
+   ${last ? `<div class="line">${noteLine(last)}</div>` : ''}
+   <div class="acts"><button class="btn sm pri" data-act="noteModal" data-id="${p.id}">${ic('note')}${t('addNote')}</button><button class="btn sm" data-act="copyTaskRemind" data-id="${p.id}">${ic('copy')}${t('reminder')}</button><button class="btn sm ghost" data-act="open" data-id="${p.id}">${t('details')}</button>
+   ${done ? `<span class="check">${ic('ok')}${t('doneToday')}</span>` : ''}</div></div>`;
+}
+function viewToday() {
+  const scope = scopeNow(), list = todayTasks(scope);
+  const doneN = list.filter(x => x.done).length;
+  const open = list.filter(x => !x.done);
+  const sec = (k, items) => items.length ? `<div class="sec-h">${t('sec_' + k)} <span class="badge" style="background:${k === 'overdue' ? 'var(--bad)' : k === 'done' ? 'var(--ok)' : 'var(--muted)'}">${items.length}</span></div><div class="tasks">${items.map(taskCard).join('')}</div>` : '';
+  const pct = list.length ? Math.round(doneN / list.length * 100) : 100;
+  return `<div class="today-head">
+    <div class="chips"><button class="chip" data-act="todayScope" data-s="mine" aria-pressed="${scope === 'mine'}">${t('scopeMine')}</button><button class="chip" data-act="todayScope" data-s="all" aria-pressed="${scope === 'all'}">${t('scopeAll')}</button></div>
+    <div class="prog"><span class="muted" style="font-size:12px">${t('worked')}: <b>${doneN}</b> ${t('of')} <b>${list.length}</b></span><div class="bar"><i style="width:${pct}%;background:var(--ok)"></i></div></div>
+    <span class="muted num" style="font-size:13px">${fd(TODAY)}</span>
+  </div>
+  ${list.length ? '' : `<div class="panel" style="margin-top:16px"><div class="empty"><b>${t('todayEmpty')}</b>${t('todayEmptySub')}</div></div>`}
+  ${sec('overdue', open.filter(x => x.kind === 'overdue').sort((a, b) => b.c.daysOver - a.c.daysOver))}
+  ${sec('today', open.filter(x => x.kind === 'today'))}
+  ${sec('soon', open.filter(x => x.kind === 'soon').sort((a, b) => a.due.localeCompare(b.due)))}
+  ${sec('done', list.filter(x => x.done))}`;
+}
+
+/* ---------- журнал действий (админ) ---------- */
+function actText(a) {
+  switch (a.action) {
+    case 'login': return t('a_login');
+    case 'plan.create': return `${t('a_planCreate')} <b>${esc(a.code)}</b> · ${esc(a.name)} · <span class="num">${money(a.amount)}</span>`;
+    case 'pay.add': return `${t('a_payAdd')} <b class="num">${money(a.amount)}</b> · ${esc(a.code)} · ${esc(a.name)}`;
+    case 'pay.delete': return `<span style="color:var(--bad)">${t('a_payDelete')}</span> <b class="num">${money(a.amount)}</b> · ${esc(a.code)} · ${esc(a.name)}`;
+    case 'plan.cancel': return `<span style="color:var(--bad)">${t('a_cancel')}</span> ${esc(a.code)} · ${esc(a.name)}`;
+    case 'plan.restore': return `${t('a_restore')} ${esc(a.code)} · ${esc(a.name)}`;
+    case 'note.add': return `<span class="ntype ${esc(a.type)}">${t('n_' + a.type)}</span><b>${esc(a.name)}</b>${a.text ? ': ' + esc(a.text) : ''}`;
+    case 'client.save': return `${t('a_client')} ${esc(a.name)}`;
+    case 'doctor.save': return `${t('a_doctor')} ${esc(a.name)}`;
+    case 'user.role': return `${t('a_role')}: ${esc(a.name)} → ${roleLabel(a.role)}`;
+    default: return esc(a.action);
+  }
+}
+function viewLog() {
+  if (!can('log')) return `<div class="panel">${t('noPerm')}</div>`;
+  const day = state.logDay;
+  const dayAll = DB.activity.filter(a => a.day === day);
+  const items = dayAll.filter(a => !state.logUser || a.by === state.logUser).sort((a, b) => b.at.localeCompare(a.at));
+  const staff = DB.users.filter(u => u.role !== 'pending').map(u => {
+    const mine = dayAll.filter(a => a.by === u.id).sort((a, b) => a.at.localeCompare(b.at));
+    const pays = mine.filter(a => a.action === 'pay.add');
+    return { u, n: mine.length, notes: mine.filter(a => a.action === 'note.add').length, pays: pays.length, paySum: sum(pays.map(a => a.amount)), plans: mine.filter(a => a.action === 'plan.create').length, first: mine[0]?.at, last: mine[mine.length - 1]?.at };
+  }).sort((a, b) => b.n - a.n);
+  return `<div class="toolbar">
+    <button class="btn sm" data-act="logShift" data-d="-1" aria-label="prev">←</button>
+    <input class="inp" type="date" id="logDay" value="${day}" style="flex:0 1 170px">
+    <button class="btn sm" data-act="logShift" data-d="1" aria-label="next" ${day >= TODAY ? 'disabled' : ''}>→</button>
+    ${day !== TODAY ? `<button class="chip" data-act="logShift" data-d="0">${t('today')}</button>` : ''}
+    <select class="inp" id="logUser" style="flex:0 1 220px"><option value="">${t('allEmployees')}</option>${staff.map(s => `<option value="${s.u.id}" ${state.logUser === s.u.id ? 'selected' : ''}>${esc(s.u.name)}</option>`).join('')}</select>
+  </div>
+  <div class="ugrid">${staff.map(s => `<button class="ucard ${s.n ? '' : 'idle'}" data-act="logUserPick" data-id="${s.u.id}" aria-pressed="${state.logUser === s.u.id}">
+     <div class="me"><div class="avatar">${esc(initials(s.u.name))}</div><div><b>${esc(s.u.name)}</b><small>${roleLabel(s.u.role)}</small></div></div>
+     ${s.n ? `<div class="stats"><div>${t('workTime')}<b>${hhmm(s.first)}–${hhmm(s.last)}</b></div><div>${t('notesCount')}<b>${s.notes}</b></div><div>${t('paysCount')}<b>${s.pays} · ${money(s.paySum)}</b></div><div>${t('plansNew')}<b>${s.plans}</b></div></div>` : `<span class="muted" style="font-size:12px">${t('noActivity')}</span>`}
+   </button>`).join('')}</div>
+  <div class="panel"><h2>${t('log')} · ${fd(day)} <span class="muted" style="font-weight:400">${items.length} ${t('actions')}</span></h2>
+   ${items.length ? `<div class="timeline">${items.map(a => `<div class="tl ${a.planId ? 'click' : ''}" ${a.planId ? `data-act="open" data-id="${a.planId}"` : ''}><span class="when">${hhmm(a.at)}</span><div class="txt">${actText(a)}<div class="who">${esc(userName(a.by))}</div></div></div>`).join('')}</div>` : `<div class="empty">${t('logEmpty')}</div>`}
+  </div>`;
+}
+
+const VIEWS = { today: viewToday, log: viewLog, dashboard: viewDashboard, plans: viewPlans, new: viewNew, clients: viewClients, doctors: viewDoctors, reports: viewReports, users: viewUsers };
+
+/* ---------- модальные окна ---------- */
+function modal(title, fields, onSave, validate) {
+  const box = $('#modal');
+  box.innerHTML = `<div class="modal-wrap" data-act="closeModal"><form class="modal" id="modalForm"><h3>${title}</h3>${fields}<p class="err" id="m_err" hidden></p><div class="acts"><button type="button" class="btn" data-act="closeModal">${t('cancel')}</button><button class="btn pri" type="submit">${t('save')}</button></div></form></div>`;
+  box.querySelector('input,select')?.focus();
+  modal.onSave = onSave; modal.validate = validate || null;
+}
+const closeModal = () => { $('#modal').innerHTML = ''; modal.onSave = null; modal.validate = null; };
+const fld = (id, label, val = '', type = 'text', req = true) => `<label class="f">${label}<input class="inp" id="${id}" type="${type}" value="${esc(val)}" ${req ? 'required' : ''}></label>`;
+
+/* ---------------- события ---------------- */
+document.addEventListener('click', async e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act, id = el.dataset.id;
+  if ((a === 'closeDrawer' || a === 'closeModal') && el.classList.contains('scrim') || el.classList.contains('modal-wrap')) { if (e.target !== el) return; }
+  switch (a) {
+    case 'go': closeModal(); state.view = el.dataset.v; state.drawer = null; try { window.scrollTo(0, 0); } catch {} render(); break;
+    case 'lang': lang = el.dataset.l; lsSet('mk_lang', lang); $('#app').innerHTML = ''; render(); break;
+    case 'loginAs': B.loginAs(id); break;
+    case 'logout': state.drawer = null; await B.logout(); break;
+    case 'authMode': state.authMode = state.authMode === 'up' ? 'in' : 'up'; render(); break;
+    case 'resetDemo': B.reset(); break;
+    case 'open': state.drawer = id; state.confirm = null; renderDrawer(); break;
+    case 'closeDrawer': state.drawer = null; state.confirm = null; renderDrawer(); break;
+    case 'planFilter': state.view = 'plans'; state.planFilter = el.dataset.f; render(); break;
+    case 'docPlans': state.view = 'plans'; state.planFilter = 'all'; state.planDoctor = id; state.planSearch = ''; render(); break;
+    case 'clientPlans': { if (e.target.closest('button[data-act="clientModal"]')) break; const cl = byId('clients', id); state.view = 'plans'; state.planFilter = 'all'; state.planDoctor = ''; state.planSearch = cl?.phone || ''; render(); break; }
+    case 'delPay': state.confirm = 'pay:' + id; renderDrawer(); break;
+    case 'delPayYes': { const p = byId('plans', state.drawer); const x = p.payments.find(y => y.id === id); state.confirm = null; await save('plans', { ...p, payments: p.payments.filter(y => y.id !== id) }, t('payDeleted'));
+      await log('pay.delete', { amount: x?.amount || 0, code: p.code, name: byId('clients', p.clientId)?.name || '', planId: p.id, clientId: p.clientId }); break; }
+    case 'cancelPlan': state.confirm = 'cancel'; renderDrawer(); break;
+    case 'confirmOff': state.confirm = null; renderDrawer(); break;
+    case 'cancelYes': { const p = byId('plans', state.drawer); state.confirm = null; await save('plans', { ...p, cancelled: true, cancelledBy: state.me.id, cancelledAt: TODAY }, t('planCancelled'));
+      await log('plan.cancel', { code: p.code, name: byId('clients', p.clientId)?.name || '', planId: p.id, clientId: p.clientId }); break; }
+    case 'restorePlan': { const p = byId('plans', state.drawer); await save('plans', { ...p, cancelled: false }, t('restored'));
+      await log('plan.restore', { code: p.code, name: byId('clients', p.clientId)?.name || '', planId: p.id, clientId: p.clientId }); break; }
+    case 'moreSheet': moreSheet(); break;
+    case 'todayScope': state.todayScope = el.dataset.s; render(); break;
+    case 'copyTaskRemind': { const p = byId('plans', id); copyText(reminderText(p, C(p))); break; }
+    case 'noteModal': { const p = byId('plans', id); if (!p) break;
+      modal(`${t('addNote')} · ${esc(byId('clients', p.clientId)?.name || '')}`,
+        `<label class="f">${t('noteType')}<select class="inp" id="nf_type">${['call', 'whatsapp', 'promise', 'noanswer', 'other'].map(k => `<option value="${k}">${t('n_' + k)}</option>`).join('')}</select></label>
+         <label class="f">${t('noteText')}<textarea class="inp" id="m_text" maxlength="500"></textarea></label>
+         <label class="f" id="nf_promWrap" hidden>${t('promiseDate')}<input class="inp" type="date" id="nf_prom" min="${TODAY}"></label>`,
+        async () => addNote(p.clientId, p.id, modal.vals.type, modal.vals.text, modal.vals.prom),
+        () => { const type = $('#nf_type').value, text = $('#m_text').value.trim(), prom = $('#nf_prom').value;
+          if (!text && type !== 'noanswer') return t('errNote'); if (type === 'promise' && !prom) return t('errPromise');
+          modal.vals = { type, text, prom }; return ''; });
+      break; }
+    case 'logShift': { const d = +el.dataset.d; state.logDay = d === 0 ? TODAY : addDays(state.logDay, d); if (state.logDay > TODAY) state.logDay = TODAY; render(); break; }
+    case 'logUserPick': state.logUser = state.logUser === id ? '' : id; render(); break;
+    case 'copyRemind': copyText($('#remindTxt').value, '#remindTxt'); break;
+    case 'closeModal': closeModal(); break;
+    case 'repPreset': { const d = new Date(); const p = el.dataset.p;
+      if (p === 'm') { state.repFrom = TODAY.slice(0, 8) + '01'; state.repTo = TODAY; }
+      if (p === 'pm') { const s = new Date(d.getFullYear(), d.getMonth() - 1, 1), en = new Date(d.getFullYear(), d.getMonth(), 0); state.repFrom = iso(s); state.repTo = iso(en); }
+      if (p === 'y') { state.repFrom = d.getFullYear() + '-01-01'; state.repTo = TODAY; }
+      render(); break; }
+    case 'copyCsv': copyText(reportCsv().replace(/;/g, '\t')); break;
+    case 'exportCsv': { const blob = new Blob(['﻿' + reportCsv()], { type: 'text/csv;charset=utf-8' }); const u = URL.createObjectURL(blob); const ln = document.createElement('a'); ln.href = u; ln.download = `payments_${state.repFrom}_${state.repTo}.csv`; document.body.appendChild(ln); ln.click(); ln.remove(); setTimeout(() => URL.revokeObjectURL(u), 1000); break; }
+    case 'docModal': { const d = id ? byId('doctors', id) : {};
+      modal(id ? t('editDoctor') : t('addDoctor'), fld('m_name', t('docName'), d.name) + fld('m_spec', t('specialty'), d.specialty, 'text', false) + `<div class="grid2">${fld('m_clinic', t('clinic'), d.clinic, 'text', false)}${fld('m_phone', t('phone'), d.phone, 'tel', false)}</div>`,
+        async () => { const v = { name: $('#m_name').value.trim(), specialty: $('#m_spec').value.trim(), clinic: $('#m_clinic').value.trim(), phone: $('#m_phone').value.trim() };
+          await save('doctors', { ...d, id: d.id || uid(), ...v }, t('saved')); await log('doctor.save', { name: v.name }); }); break; }
+    case 'clientModal': { e.stopPropagation(); const c = id ? byId('clients', id) : {};
+      modal(id ? t('editClient') : t('addClient'), fld('m_name', t('clientName'), c.name) + fld('m_phone', t('phone'), c.phone, 'tel') + `<label class="f">${t('note')}<textarea class="inp" id="m_note">${esc(c.note || '')}</textarea></label>`,
+        async () => { const v = { name: $('#m_name').value.trim(), phone: $('#m_phone').value.trim(), note: $('#m_note').value.trim() }; const cid = c.id || uid();
+          await save('clients', { ...c, id: cid, ...v, createdAt: c.createdAt || TODAY }, t('saved')); await log('client.save', { name: v.name, clientId: cid }); }); break; }
+    case 'userModal': modal(t('addUser'), fld('m_name', t('name')) + fld('m_email', t('email'), '', 'email', false) + `<label class="f">${t('role')}<select class="inp" id="m_role">${['manager', 'accountant', 'admin'].map(r => `<option value="${r}">${roleLabel(r)}</option>`).join('')}</select></label>`,
+        () => save('users', { id: uid(), name: $('#m_name').value.trim(), email: $('#m_email').value.trim(), role: $('#m_role').value }, t('saved'))); break;
+  }
+});
+document.addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target;
+  if (f.id === 'planForm') submitPlan();
+  else if (f.id === 'payForm') submitPayment();
+  else if (f.id === 'noteForm') submitNote();
+  else if (f.id === 'modalForm' && modal.onSave) {
+    const msg = modal.validate ? modal.validate() : '';
+    if (msg) { const er = $('#m_err'); er.textContent = msg; er.hidden = false; return; }
+    const pending = modal.onSave(); closeModal(); await pending; // onSave читает поля синхронно, до закрытия окна
+  }
+  else if (f.id === 'authForm') {
+    const err = $('#au_err');
+    try { if (state.authMode === 'up') await B.signUp($('#au_name').value.trim(), $('#au_email').value.trim(), $('#au_pass').value); else await B.signIn($('#au_email').value.trim(), $('#au_pass').value); }
+    catch (x) { err.textContent = x.message; err.hidden = false; }
+  }
+});
+document.addEventListener('input', e => {
+  const id = e.target.id;
+  if (id === 'planSearch') { state.planSearch = e.target.value; $('#plansList').innerHTML = plansListHtml(); }
+  else if (id === 'clientSearch') { state.clientSearch = e.target.value; const pos = e.target.selectionStart; $('#view').innerHTML = viewClients(); const inp = $('#clientSearch'); inp.focus(); inp.setSelectionRange(pos, pos); }
+  else if (e.target.closest('#planForm')) {
+    updatePreview();
+    if (id === 'np_name') { const c = DB.clients.find(x => x.name === e.target.value); if (c && !$('#np_phone').value) $('#np_phone').value = c.phone; }
+  }
+});
+document.addEventListener('change', async e => {
+  const el = e.target;
+  if (el.id === 'planDoctor') { state.planDoctor = el.value; $('#plansList').innerHTML = plansListHtml(); }
+  else if (el.id === 'repFrom' || el.id === 'repTo') { state[el.id] = el.value; render(); }
+  else if (el.dataset.role) { const u = byId('users', el.dataset.role); if (u) { await save('users', { ...u, role: el.value }, t('saved')); await log('user.role', { name: u.name, role: el.value }); } }
+  else if (el.id === 'logDay') { state.logDay = el.value > TODAY ? TODAY : (el.value || TODAY); render(); }
+  else if (el.id === 'logUser') { state.logUser = el.value; render(); }
+  else if (el.id === 'nf_type') { const w = $('#nf_promWrap'); if (w) w.hidden = el.value !== 'promise'; }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('#modal')?.innerHTML) closeModal(); else if (state.drawer) { state.drawer = null; renderDrawer(); } } });
+
+B.init();
+</script>
