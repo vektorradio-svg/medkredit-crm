@@ -583,6 +583,8 @@ const DemoBackend = {
   persist() { lsSet(DEMO_KEY, DB); },
   async save(col, obj) { const i = DB[col].findIndex(x => x.id === obj.id); if (i >= 0) DB[col][i] = obj; else DB[col].push(obj); this.persist(); recalc(); render(); },
   async remove(col, id) { DB[col] = DB[col].filter(x => x.id !== id); this.persist(); recalc(); render(); },
+  async saveMany(col, arr, onProgress) { const idx = new Map(DB[col].map((x, i) => [x.id, i])); arr.forEach(o => { if (idx.has(o.id)) DB[col][idx.get(o.id)] = o; else DB[col].push(o); }); onProgress?.(arr.length); },
+  flush() { this.persist(); recalc(); render(); },
   async loginAs(id) { state.me = DB.users.find(u => u.id === id); lsSet('mk_demo_me', id); state.view = homeView(state.me.role); state.todayScope = null; render(); await logLoginOnce(); },
   async logout() { state.me = null; lsSet('mk_demo_me', null); render(); },
   reset() { try { localStorage.removeItem(DEMO_KEY); } catch {} Object.assign(DB, seed()); this.persist(); recalc(); render(); toast(t('saved')); }
@@ -626,6 +628,14 @@ const FirebaseBackend = {
   },
   async save(col, obj) { const { id, ...data } = obj; await this.fs.collection(col).doc(id).set(JSON.parse(JSON.stringify(data))); },
   async remove(col, id) { await this.fs.collection(col).doc(id).delete(); },
+  async saveMany(col, arr, onProgress) {
+    for (let i = 0; i < arr.length; i += 100) {
+      const b = this.fs.batch();
+      arr.slice(i, i + 100).forEach(o => { const { id, ...data } = o; b.set(this.fs.collection(col).doc(id), JSON.parse(JSON.stringify(data))); });
+      await b.commit(); onProgress?.(Math.min(100, arr.length - i));
+    }
+  },
+  flush() {},
   async signIn(email, pass) { await this.auth.signInWithEmailAndPassword(email, pass); },
   async signUp(name, email, pass) { const c = await this.auth.createUserWithEmailAndPassword(email, pass); await c.user.updateProfile({ displayName: name }); await this.fs.collection('users').doc(c.user.uid).set({ name, email, role: 'pending', createdAt: TODAY }); state.me = { id: c.user.uid, name, email, role: 'pending' }; render(); },
   async logout() { await this.auth.signOut(); }
@@ -650,6 +660,7 @@ const ICONS = {
   more: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   note: '<path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/>',
   ok: '<path d="M5 12l5 5L20 7"/>',
+  import: '<path d="M12 3v12M7 10l5 5 5-5M4 17v3h16v-3"/>',
 };
 const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
 
@@ -661,6 +672,7 @@ function navItems() {
   if (!can('plan.create')) items.splice(items.indexOf('new'), 1);
   if (can('users')) items.push('users');
   if (can('log')) items.push('log');
+  if (can('users')) items.push('import');
   return items;
 }
 const TAB_MAIN = ['today', 'plans', 'new', 'clients'];
@@ -960,8 +972,8 @@ function renderDrawer() {
      ${open ? `<div class="panel"><h2>${t('reminder')}<button class="lnk" data-act="copyRemind">${t('copy')}</button></h2><textarea class="inp" id="remindTxt" readonly>${esc(remind)}</textarea></div>` : ''}
 
      <div class="panel"><h2>${t('details')}</h2><dl class="kv">
-       <dt>${t('doctor')}</dt><dd>${esc(docName(p.doctorId))}</dd>
-       <dt>${t('manager')}</dt><dd>${esc(userName(p.managerId))}</dd>
+       <dt>${t('doctor')}</dt><dd>${can('plan.create') ? `<select class="inp" data-plandoc="${p.id}" style="max-width:280px"><option value="">—</option>${DB.doctors.map(d => `<option value="${d.id}" ${d.id === p.doctorId ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select>` : esc(docName(p.doctorId))}</dd>
+       <dt>${t('manager')}</dt><dd>${can('users') ? `<select class="inp" data-planmgr="${p.id}" style="max-width:280px"><option value="">${t('mgrLater')}</option>${DB.users.filter(u => u.role === 'manager' || u.role === 'admin').map(u => `<option value="${u.id}" ${u.id === p.managerId ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>` : esc(userName(p.managerId))}${p.managerCode ? ` <small class="muted">Excel: ${esc(p.managerCode)}</small>` : ''}</dd>
        <dt>${t('startDate')}</dt><dd>${fd(p.startDate)}</dd>
        <dt>${t('months')}</dt><dd>${p.months}</dd>
        ${p.note ? `<dt>${t('note')}</dt><dd>${esc(p.note)}</dd>` : ''}
@@ -1070,9 +1082,24 @@ function reportCsv() {
 function viewUsers() {
   if (!can('users')) return `<div class="panel">${t('noPerm')}</div>`;
   const list = [...DB.users].sort((a, b) => (a.role === 'pending' ? -1 : 0) - (b.role === 'pending' ? -1 : 0));
-  return `<div class="panel" style="padding:6px 14px"><div class="tw"><table><thead><tr><th>${t('name')}</th><th>${t('email')}</th><th>${t('role')}</th><th>${t('rights')}</th></tr></thead><tbody>
-   ${list.map(u => `<tr><td><b>${esc(u.name)}</b></td><td class="muted">${esc(u.email || '')}</td><td>${u.id === state.me.id ? roleLabel(u.role) : `<select class="inp" data-role="${u.id}" style="min-width:150px">${['pending', 'manager', 'accountant', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleLabel(r)}</option>`).join('')}</select>`}</td><td class="muted" style="font-size:12px">${u.role === 'pending' ? pill('pending') : rightsText(u.role)}</td></tr>`).join('')}
-  </tbody></table></div></div>`;
+  return `<div class="panel" style="padding:6px 14px"><div class="tw"><table><thead><tr><th>${t('name')}</th><th>${t('email')}</th><th>${t('role')}</th><th>${t('xlsCode')}</th><th>${t('rights')}</th></tr></thead><tbody>
+   ${list.map(u => `<tr><td><b>${esc(u.name)}</b></td><td class="muted">${esc(u.email || '')}</td><td>${u.id === state.me.id ? roleLabel(u.role) : `<select class="inp" data-role="${u.id}" style="min-width:150px">${['pending', 'manager', 'accountant', 'admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${roleLabel(r)}</option>`).join('')}</select>`}</td><td><input class="inp num" data-ucode="${u.id}" value="${esc(u.importCode || '')}" placeholder="AYTƏO" style="width:110px" list="xlsCodes"></td><td class="muted" style="font-size:12px">${u.role === 'pending' ? pill('pending') : rightsText(u.role)}</td></tr>`).join('')}
+  </tbody></table></div></div>
+  <datalist id="xlsCodes">${[...new Set(DB.plans.map(p => p.managerCode).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+  ${unassignedCodes().length ? `<div class="panel" style="margin-top:16px"><h2>${t('codesFree')}</h2><p class="muted" style="margin:0 0 10px;font-size:13px">${t('codesFreeHint')}</p><div class="chips">${unassignedCodes().map(([c, n]) => `<span class="chip">${esc(c)} <span class="num">${n}</span></span>`).join('')}</div></div>` : ''}`;
+}
+function unassignedCodes() {
+  const m = new Map(); DB.plans.forEach(p => { if (p.managerCode && !p.managerId) m.set(p.managerCode, (m.get(p.managerCode) || 0) + 1); });
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+/* назначает менеджеру все рассрочки с этим кодом из Excel */
+async function assignCode(user, code) {
+  code = code.trim().toUpperCase();
+  await save('users', { ...user, importCode: code }, t('saved'));
+  if (!code) return;
+  const upd = DB.plans.filter(p => p.managerCode === code && p.managerId !== user.id).map(p => ({ ...p, managerId: user.id }));
+  if (upd.length) { await B.saveMany('plans', upd); B.flush(); toast(t('codeAssigned').replace('{n}', upd.length).replace('{name}', user.name)); }
+  await log('user.code', { name: user.name, code, amount: upd.length });
 }
 
 /* ---------- сегодня: кому звонить ---------- */
@@ -1147,6 +1174,8 @@ function actText(a) {
     case 'note.add': return `<span class="ntype ${esc(a.type)}">${t('n_' + a.type)}</span><b>${esc(a.name)}</b>${a.text ? ': ' + esc(a.text) : ''}`;
     case 'client.save': return `${t('a_client')} ${esc(a.name)}`;
     case 'doctor.save': return `${t('a_doctor')} ${esc(a.name)}`;
+    case 'import': return `${t('a_import')}: <b class="num">${a.amount}</b> ${t('cnt_plans')} · ${esc(a.name)}`;
+    case 'user.code': return `${t('a_code')}: ${esc(a.name)} → <b>${esc(a.code)}</b> (${a.amount} ${t('cnt_plans')})`;
     case 'user.role': return `${t('a_role')}: ${esc(a.name)} → ${roleLabel(a.role)}`;
     default: return esc(a.action);
   }
@@ -1177,7 +1206,231 @@ function viewLog() {
   </div>`;
 }
 
-const VIEWS = { today: viewToday, log: viewLog, dashboard: viewDashboard, plans: viewPlans, new: viewNew, clients: viewClients, doctors: viewDoctors, reports: viewReports, users: viewUsers };
+/* ---------- импорт из Excel ---------- */
+Object.assign(I18N.ru, { import:'Импорт', impTitle:'Импорт базы из Excel', impIntro:'Выберите файл Excel со старой базой. Ожидаемые колонки: Ad, Soyad, Ümumi məbləğ, İlkin ödəniş, 1-ci ay … 10-cu ay, Sənədləşmə, Əməliyyat, Əlaqə nömrəsi. Месяц с «+» считается оплаченным, число без «+» — платёж по графику, текст — заметка.',
+  impPick:'Выбрать файл', impReading:'Читаю файл…', impRows:'Строк в файле', impNew:'Будет добавлено', impDup:'Уже есть в CRM', impSkip:'Пропущено', impClients:'Новых клиентов', impPays:'Платежей', impFinanced:'Сумма рассрочек', impPaid:'Уже оплачено', impRemain:'Остаток долга', impOverdue:'Сейчас в просрочке',
+  impDoctors:'Врачи из колонки «Əməliyyat»', impDocHint:'Код из файла. Впишите имя врача — так он и появится в CRM. Можно поменять потом в разделе «Врачи».', impCode:'Код', impDocName:'Имя врача в CRM', impExisting:'уже есть',
+  impWarn:'Проверьте эти строки', impWarnHint:'Импорт пройдёт, но данные в строке необычные.', impRow:'Строка', impPreview:'Первые строки после разбора', impManager:'Ответственный менеджер для всех клиентов', impGo:'Загрузить в CRM', impDoing:'Загружаю…', impDone:'Импорт завершён', impAgain:'Выбрать другой файл', impNothing:'Новых записей нет — всё уже загружено', impNoHeader:'Не нашёл строку заголовков с колонками «Ad» и «Soyad»', impFail:'Не удалось прочитать файл',
+  w_nototal:'нет общей суммы — строка пропущена', w_overpaid:'оплачено больше общей суммы, сумма увеличена до оплаченной', w_extra:'по графику меньше суммы — остаток {x} добавлен последним платежом', w_trim:'по графику больше суммы на {x} — лишнее убрано из конца графика', w_phone:'нет телефона', w_nodate:'нет даты оформления — взята дата операции', w_nodate2:'нет дат — взята сегодняшняя', w_nodoc:'нет кода врача', w_text:'текст в месяце, перенесён в заметку', a_import:'Импортировал(а) из Excel', noDoctor:'Врач не указан',
+  impMgrs:'Менеджеры из колонки «Əməliyyat»', impMgrHint:'Код из файла — менеджер, который вёл клиента. Выберите сотрудника. Если его ещё нет в CRM, оставьте «Назначить позже»: когда он зарегистрируется, впишите ему этот код в разделе «Сотрудники», и клиенты перейдут к нему.', impUser:'Сотрудник в CRM',
+  impDocNote:'Врача в файле нет: все рассрочки получат врача «Врач не указан». Врача можно выбрать в карточке рассрочки.', mgrLater:'Назначить позже', w_nocode:'нет кода менеджера',
+  xlsCode:'Код в Excel', codesFree:'Коды из Excel без сотрудника', codesFreeHint:'У этих клиентов ещё нет менеджера. Впишите код сотруднику в колонке «Код в Excel» — клиенты перейдут к нему.', codeAssigned:'{name}: назначено рассрочек — {n}', a_code:'Назначил(а) код из Excel' });
+Object.assign(I18N.az, { import:'İdxal', impTitle:'Excel-dən bazanın idxalı', impIntro:'Köhnə bazanın Excel faylını seçin. Gözlənilən sütunlar: Ad, Soyad, Ümumi məbləğ, İlkin ödəniş, 1-ci ay … 10-cu ay, Sənədləşmə, Əməliyyat, Əlaqə nömrəsi. «+» olan ay ödənilmiş sayılır, «+» olmayan rəqəm — qrafik üzrə ödəniş, mətn — qeyd.',
+  impPick:'Fayl seç', impReading:'Fayl oxunur…', impRows:'Fayldakı sətirlər', impNew:'Əlavə ediləcək', impDup:'Artıq CRM-də var', impSkip:'Buraxılıb', impClients:'Yeni müştərilər', impPays:'Ödənişlər', impFinanced:'Kreditlərin məbləği', impPaid:'Artıq ödənilib', impRemain:'Borc qalığı', impOverdue:'Hazırda gecikmədə',
+  impDoctors:'«Əməliyyat» sütunundan həkimlər', impDocHint:'Fayldakı kod. Həkimin adını yazın — CRM-də belə görünəcək. Sonra «Həkimlər» bölməsində dəyişmək olar.', impCode:'Kod', impDocName:'CRM-də həkimin adı', impExisting:'artıq var',
+  impWarn:'Bu sətirləri yoxlayın', impWarnHint:'İdxal keçəcək, amma sətirdəki məlumat qeyri-adidir.', impRow:'Sətir', impPreview:'Təhlildən sonra ilk sətirlər', impManager:'Bütün müştərilər üçün məsul menecer', impGo:'CRM-ə yüklə', impDoing:'Yüklənir…', impDone:'İdxal tamamlandı', impAgain:'Başqa fayl seç', impNothing:'Yeni qeyd yoxdur — hamısı artıq yüklənib', impNoHeader:'«Ad» və «Soyad» sütunları olan başlıq sətri tapılmadı', impFail:'Faylı oxumaq alınmadı',
+  w_nototal:'ümumi məbləğ yoxdur — sətir buraxıldı', w_overpaid:'ümumi məbləğdən çox ödənilib, məbləğ ödənilənə qədər artırıldı', w_extra:'qrafik məbləğdən azdır — qalıq {x} son ödəniş kimi əlavə edildi', w_trim:'qrafik məbləğdən {x} çoxdur — artıq hissə qrafikin sonundan çıxarıldı', w_phone:'telefon yoxdur', w_nodate:'sənədləşmə tarixi yoxdur — əməliyyat tarixi götürüldü', w_nodate2:'tarix yoxdur — bugünkü götürüldü', w_nodoc:'həkim kodu yoxdur', w_text:'ayda mətn var, qeydə köçürüldü', a_import:'Excel-dən idxal etdi', noDoctor:'Həkim göstərilməyib',
+  impMgrs:'«Əməliyyat» sütunundan menecerlər', impMgrHint:'Fayldakı kod — müştəri ilə işləyən menecer. İşçini seçin. Hələ CRM-də yoxdursa, «Sonra təyin et» saxlayın: qeydiyyatdan keçəndə «İşçilər» bölməsində ona bu kodu yazın, müştərilər ona keçəcək.', impUser:'CRM-də işçi',
+  impDocNote:'Faylda həkim yoxdur: bütün kreditlər «Həkim göstərilməyib» alacaq. Həkimi kredit kartında seçmək olar.', mgrLater:'Sonra təyin et', w_nocode:'menecer kodu yoxdur',
+  xlsCode:'Excel kodu', codesFree:'İşçisiz Excel kodları', codesFreeHint:'Bu müştərilərin hələ meneceri yoxdur. İşçiyə «Excel kodu» sütununda kodu yazın — müştərilər ona keçəcək.', codeAssigned:'{name}: təyin edilən kreditlər — {n}', a_code:'Excel kodunu təyin etdi' });
+ICONS.import = ICONS.import || '';
+
+function loadScript(src) { return new Promise((ok, no) => { if ([...document.scripts].some(s => s.src === src)) return ok(); const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => no(new Error('load ' + src)); document.head.appendChild(s); }); }
+const normTxt = s => String(s ?? '').trim().replace(/İ/g, 'i').toLowerCase().replace(/\u0307/g, '').replace(/\s+/g, ' ');
+function impDate(v) {
+  if (v instanceof Date && !isNaN(v)) return iso(new Date(v.getTime() + 12 * 3600e3)); // SheetJS отдаёт 23:59:36 предыдущего дня
+  const m = String(v ?? '').match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/);
+  if (m) { const d = +m[1], mo = +m[2], y = +m[3]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return `${y}-${pad(mo)}-${pad(d)}`; }
+  return '';
+}
+function impMonthCell(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return { amt: r2(v), paid: false, text: '' };
+  if (v instanceof Date) return { amt: 0, paid: false, text: fd(impDate(v)) };
+  const s = String(v).trim(); if (!s) return null;
+  const m = s.match(/^(\p{L}{0,4}\.?)\s*(\d+(?:[.,]\d+)?)\s*(\+)?\s*(.*)$/u);
+  if (m && !/^\d{4}-\d{2}/.test(s)) return { amt: r2(+m[2].replace(',', '.')), paid: !!m[3], text: m[4] ? s : '' };
+  return { amt: 0, paid: false, text: s };
+}
+/* разбирает лист (массив строк) в записи. Ничего не пишет в базу. */
+function parseImportRows(rows) {
+  let h = -1, col = {};
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const r = (rows[i] || []).map(normTxt);
+    if (r.includes('ad') && r.includes('soyad')) { h = i; r.forEach((x, j) => {
+      if (x === 'ad') col.ad = j; else if (x === 'soyad') col.soyad = j;
+      else if (x.includes('məbləğ')) col.total = j; else if (x.includes('ilkin')) col.down = j;
+      else if (/^\d+\s*-?\s*(ci|cı|cu|cü)?\s*ay/.test(x)) (col.months = col.months || []).push(j);
+      else if (x.includes('sənəd')) col.contract = j; else if (x.includes('əməliyyat')) col.op = j;
+      else if (x.includes('əlaqə') || x.includes('nömrə') || x.includes('telefon')) col.phone = j;
+    }); break; }
+  }
+  if (h < 0) throw new Error(t('impNoHeader'));
+  col.months = col.months || [];
+  const recs = [];
+  for (let i = h + 1; i < rows.length; i++) {
+    const r = rows[i] || [], g = j => j == null ? null : r[j];
+    const name = [g(col.ad), g(col.soyad)].map(x => String(x ?? '').trim()).filter(Boolean).join(' ');
+    const totalRaw = g(col.total);
+    if (!name && (totalRaw == null || totalRaw === '')) continue;
+    const warn = [], notes = [];
+    const total = typeof totalRaw === 'number' ? r2(totalRaw) : r2(String(totalRaw ?? '').replace(',', '.').replace(/[^\d.]/g, ''));
+    const down = typeof g(col.down) === 'number' ? r2(g(col.down)) : r2(String(g(col.down) ?? '').replace(/[^\d.]/g, ''));
+    const opRaw = g(col.op), opStr = opRaw instanceof Date ? '' : String(opRaw ?? '');
+    const opDate = impDate(opRaw);
+    const code = (opStr.replace(/[\d.\/\-:]+/g, ' ').trim().split(/\s+/).pop() || '').toUpperCase();
+    let start = impDate(g(col.contract));
+    if (!start && opDate) { start = opDate; warn.push(t('w_nodate')); }
+    if (!start) { start = TODAY; warn.push(t('w_nodate2')); }
+    const phoneRaw = String(g(col.phone) ?? '').trim(), digits = phoneRaw.replace(/\D/g, '');
+    const phone = digits.length >= 9 ? phoneRaw : '';
+    if (!phone) { warn.push(t('w_phone')); if (phoneRaw) notes.push(phoneRaw); }
+    if (!code) warn.push(t('w_nocode'));
+    const months = []; let hadText = false;
+    col.months.forEach((j, k) => { const c = impMonthCell(g(j)); if (!c) return; if (c.text) { notes.push(c.text); hadText = true; } if (c.amt > 0) months.push({ n: k + 1, ...c }); });
+    if (hadText) warn.push(t('w_text'));
+    if (!(total > 0)) { recs.push({ row: i + 1, name, skip: true, warn: [t('w_nototal')] }); continue; }
+    recs.push({ row: i + 1, name, phone, total, down, start, opDate, code, months, notes, warn });
+  }
+  return recs;
+}
+/* превращает запись в рассрочку, платежи и график */
+function buildImportPlan(rec) {
+  const schedule = [], payments = [];
+  if (rec.down > 0) { schedule.push({ n: 0, due: rec.start, amount: rec.down }); payments.push({ amount: rec.down, date: rec.start }); }
+  rec.months.forEach(m => {
+    const due = addMonths(rec.start, m.n);
+    schedule.push({ n: m.n, due, amount: m.amt });
+    if (m.paid) payments.push({ amount: m.amt, date: due < TODAY ? due : TODAY });
+  });
+  const warn = [...rec.warn];
+  const paid = sum(payments.map(x => x.amount));
+  let total = rec.total;
+  if (paid > total + 0.5) { warn.push(t('w_overpaid')); total = paid; }
+  let planSum = sum(schedule.map(x => x.amount));
+  if (planSum < total - 0.5) {
+    const lastN = schedule.reduce((m, x) => Math.max(m, x.n), 0) + 1;
+    warn.push(t('w_extra').replace('{x}', money(total - planSum)));
+    schedule.push({ n: lastN, due: addMonths(rec.start, lastN), amount: r2(total - planSum) });
+  } else if (planSum > total + 0.5) {
+    warn.push(t('w_trim').replace('{x}', money(planSum - total)));
+    let extra = r2(planSum - total);
+    for (let i = schedule.length - 1; i >= 0 && extra > 0.004; i--) { const cut = Math.min(extra, schedule[i].amount); schedule[i].amount = r2(schedule[i].amount - cut); extra = r2(extra - cut); }
+    for (let i = schedule.length - 1; i >= 0; i--) if (schedule[i].amount <= 0.004) schedule.splice(i, 1);
+  }
+  return { total, schedule, payments, warn, months: schedule.filter(x => x.n > 0).length || 1 };
+}
+const impKey = (name, start, total) => normTxt(name) + '|' + start + '|' + r2(total);
+
+state.imp = null;
+async function impReadFile(file) {
+  state.imp = { stage: 'reading', fileName: file.name }; render();
+  try {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+    impPrepare(parseImportRows(rows), file.name, rows.length);
+  } catch (e) { state.imp = { stage: 'error', error: t('impFail') + ': ' + e.message }; render(); }
+}
+function impPrepare(recs, fileName, rowCount) {
+  const existingKeys = new Set(DB.plans.map(p => p.importKey).filter(Boolean));
+  const items = [], skipped = [], dups = [];
+  const codes = new Map();
+  recs.forEach(rec => {
+    if (rec.skip) { skipped.push(rec); return; }
+    const key = impKey(rec.name, rec.start, rec.total);
+    if (existingKeys.has(key)) { dups.push(rec); return; }
+    existingKeys.add(key);
+    const b = buildImportPlan(rec);
+    items.push({ rec, key, ...b });
+    const c = rec.code || '';
+    codes.set(c, (codes.get(c) || 0) + 1);
+  });
+  const mgrMap = {};
+  [...codes.keys()].forEach(c => { mgrMap[c] = c ? (DB.users.find(u => u.importCode === c)?.id || '') : ''; });
+  state.imp = { stage: 'preview', fileName, rowCount, items, skipped, dups, codes: [...codes.entries()].sort((a, b) => b[1] - a[1]), mgrMap };
+  render();
+}
+function impStats(items) {
+  let fin = 0, paid = 0, rem = 0, ovN = 0, ovA = 0, pays = 0;
+  items.forEach(it => {
+    const c = calc({ total: it.total, schedule: it.schedule, payments: it.payments, cancelled: false });
+    fin += it.total; paid += c.paidTotal; rem += c.remaining; pays += it.payments.length;
+    if (c.overdueAmt > 0) { ovN++; ovA += c.overdueAmt; }
+  });
+  return { fin: r2(fin), paid: r2(paid), rem: r2(rem), ovN, ovA: r2(ovA), pays };
+}
+function viewImport() {
+  if (!can('users')) return `<div class="panel">${t('noPerm')}</div>`;
+  const im = state.imp;
+  const picker = `<label class="btn pri" style="cursor:pointer">${ic('import')}${im ? t('impAgain') : t('impPick')}<input type="file" id="impFile" accept=".xlsx,.xls,.xlsm" hidden></label>`;
+  if (!im) return `<div class="panel" style="max-width:720px"><h2>${t('impTitle')}</h2><p class="muted" style="margin:0 0 14px">${t('impIntro')}</p>${picker}</div>`;
+  if (im.stage === 'reading') return `<div class="panel"><div class="empty">${t('impReading')} ${esc(im.fileName || '')}</div></div>`;
+  if (im.stage === 'error') return `<div class="panel"><p class="err">${esc(im.error)}</p>${picker}</div>`;
+  if (im.stage === 'saving') return `<div class="panel"><h2>${t('impDoing')}</h2><div class="bar" style="height:8px"><i style="width:${Math.round(im.done / im.totalOps * 100)}%"></i></div><p class="muted num">${im.done} / ${im.totalOps}</p></div>`;
+  if (im.stage === 'done') return `<div class="panel" style="max-width:720px"><h2 style="color:var(--ok)">${ic('ok')}${t('impDone')}</h2><p>${t('impNew')}: <b class="num">${im.count}</b> · ${t('impClients')}: <b class="num">${im.clients}</b> · ${t('impPays')}: <b class="num">${im.pays}</b></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" data-act="go" data-v="plans">${t('plans')}</button><button class="btn" data-act="go" data-v="doctors">${t('doctors')}</button>${picker}</div></div>`;
+  const s = impStats(im.items);
+  const warnRows = im.items.filter(it => it.warn.length).map(it => ({ row: it.rec.row, name: it.rec.name, w: it.warn })).concat(im.skipped.map(r => ({ row: r.row, name: r.name, w: r.warn }))).sort((a, b) => a.row - b.row);
+  const managers = DB.users.filter(u => u.role === 'manager' || u.role === 'admin');
+  return `<div class="toolbar"><span class="muted">${esc(im.fileName)}</span>${picker}</div>
+  <div class="kpis">
+    <div class="kpi"><span class="lbl">${t('impNew')}</span><span class="val">${im.items.length}</span><span class="sub">${t('impRows')}: ${im.rowCount} · ${t('impDup')}: ${im.dups.length} · ${t('impSkip')}: ${im.skipped.length}</span></div>
+    <div class="kpi"><span class="lbl">${t('impFinanced')}</span><span class="val">${money(s.fin)}</span><span class="sub">${t('impPaid')} ${money(s.paid)} · ${s.pays} ${t('impPays').toLowerCase()}</span></div>
+    <div class="kpi"><span class="lbl">${t('impRemain')}</span><span class="val">${money(s.rem)}</span><span class="sub">${t('portfolioSub')}</span></div>
+    <div class="kpi ${s.ovA ? 'bad' : ''}"><span class="lbl">${t('impOverdue')}</span><span class="val">${money(s.ovA)}</span><span class="sub">${s.ovN} ${t('overdueSub')}</span></div>
+  </div>
+  <div class="dash-grid">
+    <div class="panel"><h2>${t('impMgrs')}</h2><p class="muted" style="margin:0 0 10px;font-size:13px">${t('impMgrHint')}</p>
+      <div class="tw"><table><thead><tr><th>${t('impCode')}</th><th class="r">${t('cnt_plans')}</th><th>${t('impUser')}</th></tr></thead><tbody>
+      ${im.codes.map(([c, n]) => `<tr><td class="num"><b>${esc(c || '—')}</b></td><td class="r num">${n}</td><td><select class="inp" data-impmgr="${esc(c)}" style="min-width:180px"><option value="">${t('mgrLater')}</option>${managers.map(u => `<option value="${u.id}" ${im.mgrMap[c] === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select></td></tr>`).join('')}
+      </tbody></table></div><p class="muted" style="margin:12px 0 0;font-size:12px">${t('impDocNote')}</p></div>
+    <div class="panel"><h2>${t('impWarn')} <span class="badge" style="background:var(--warn)">${warnRows.length}</span></h2><p class="muted" style="margin:0 0 10px;font-size:13px">${t('impWarnHint')}</p>
+      <div style="max-height:340px;overflow:auto"><table><thead><tr><th>${t('impRow')}</th><th>${t('client')}</th><th></th></tr></thead><tbody>
+      ${warnRows.map(w => `<tr><td class="num muted">${w.row}</td><td>${esc(w.name)}</td><td style="font-size:12px">${w.w.map(esc).join('<br>')}</td></tr>`).join('') || `<tr><td colspan="3" class="muted">—</td></tr>`}
+      </tbody></table></div></div>
+  </div>
+  <div class="panel" style="margin-bottom:16px"><h2>${t('impPreview')}</h2><div class="tw"><table><thead><tr><th>${t('impRow')}</th><th>${t('client')}</th><th>${t('impCode')}</th><th>${t('startDate')}</th><th class="r">${t('total')}</th><th class="r">${t('paid')}</th><th class="r">${t('remaining')}</th><th>${t('status')}</th><th>${t('note')}</th></tr></thead><tbody>
+    ${im.items.slice(0, 25).map(it => { const c = calc({ total: it.total, schedule: it.schedule, payments: it.payments }); return `<tr><td class="num muted">${it.rec.row}</td><td><b>${esc(it.rec.name)}</b><small>${esc(it.rec.phone)}</small></td><td class="num">${esc(it.rec.code)}</td><td>${fd(it.rec.start)}</td><td class="r num">${money(it.total)}</td><td class="r num">${money(c.paidTotal)}</td><td class="r num">${money(c.remaining)}</td><td>${pill(c.status)}</td><td style="font-size:12px;max-width:220px">${esc(it.rec.notes.join(' '))}</td></tr>`; }).join('')}
+  </tbody></table></div></div>
+  <div class="panel" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    ${im.items.length ? `<button class="btn pri" data-act="impGo">${ic('import')}${t('impGo')} (${im.items.length})</button>` : `<span class="muted">${t('impNothing')}</span>`}
+  </div>`;
+}
+async function impRun() {
+  const im = state.imp; if (!im || im.stage !== 'preview' || !im.items.length) return;
+  const now = new Date().toISOString();
+  // врача в файле нет — один общий «Врач не указан»
+  const newDocs = [];
+  let noDoc = DB.doctors.find(d => d.importCode === '__none__');
+  if (!noDoc) { noDoc = { id: uid(), name: t('noDoctor'), specialty: '', clinic: '', phone: '', importCode: '__none__' }; newDocs.push(noDoc); }
+  // коды менеджеров: запоминаем у сотрудника, чтобы будущие импорты и назначения шли сами
+  const codeUsers = [];
+  Object.entries(im.mgrMap).forEach(([c, id]) => { const u = id && byId('users', id); if (u && c && u.importCode !== c) codeUsers.push({ ...u, importCode: c }); });
+  // клиенты
+  const byPhone = new Map(DB.clients.filter(c => c.phone).map(c => [c.phone.replace(/\D/g, '').slice(-9), c.id]));
+  const byName = new Map(DB.clients.filter(c => !c.phone).map(c => [normTxt(c.name), c.id]));
+  const newClients = [], plans = [], notes = [];
+  let n = DB.plans.reduce((m, p) => Math.max(m, +String(p.code).replace(/\D/g, '') || 0), 0);
+  im.items.forEach(it => {
+    const r = it.rec, ph = r.phone ? r.phone.replace(/\D/g, '').slice(-9) : '';
+    let cid = ph ? byPhone.get(ph) : byName.get(normTxt(r.name));
+    if (!cid) { cid = uid(); newClients.push({ id: cid, name: r.name, phone: r.phone, note: '', createdAt: r.start, imported: true }); if (ph) byPhone.set(ph, cid); else byName.set(normTxt(r.name), cid); }
+    const pid = uid(); n++;
+    plans.push({ id: pid, code: 'R-' + String(n).padStart(4, '0'), clientId: cid, doctorId: noDoc.id, managerId: im.mgrMap[r.code || ''] || '', managerCode: r.code || '',
+      procedure: 'Əməliyyat' + (r.opDate ? ' ' + fd(r.opDate) : ''), total: it.total, down: r.down, months: it.months, startDate: r.start,
+      schedule: it.schedule, payments: it.payments.map(x => ({ id: uid(), amount: x.amount, date: x.date, method: 'cash', note: 'Excel', by: state.me.id, at: now })),
+      note: '', cancelled: false, createdAt: r.start, createdBy: state.me.id, importKey: it.key, importRow: r.row });
+    if (r.notes.length) notes.push({ id: uid(), clientId: cid, planId: pid, type: 'other', text: 'Excel: ' + r.notes.join(' ').replace(/\s+/g, ' ').slice(0, 500), promiseDate: '', by: state.me.id, at: now, day: TODAY });
+  });
+  const totalOps = newDocs.length + newClients.length + plans.length + notes.length;
+  const res = { count: plans.length, clients: newClients.length, pays: plans.reduce((s, p) => s + p.payments.length, 0) };
+  state.imp = { stage: 'saving', done: 0, totalOps }; render();
+  const prog = k => { if (state.imp?.stage === 'saving') { state.imp.done += k; if (state.view === 'import') $('#view').innerHTML = viewImport(); } };
+  try {
+    await B.saveMany('doctors', newDocs, prog);
+    if (codeUsers.length) await B.saveMany('users', codeUsers);
+    await B.saveMany('clients', newClients, prog);
+    await B.saveMany('plans', plans, prog);
+    await B.saveMany('notes', notes, prog);
+    B.flush();
+    await log('import', { amount: plans.length, name: im.fileName || 'Excel' });
+    state.imp = { stage: 'done', ...res }; render();
+  } catch (e) { state.imp = { stage: 'error', error: e.message }; render(); }
+}
+
+const VIEWS = { import: viewImport, today: viewToday, log: viewLog, dashboard: viewDashboard, plans: viewPlans, new: viewNew, clients: viewClients, doctors: viewDoctors, reports: viewReports, users: viewUsers };
 
 /* ---------- модальные окна ---------- */
 function modal(title, fields, onSave, validate) {
@@ -1229,6 +1482,7 @@ document.addEventListener('click', async e => {
           modal.vals = { type, text, prom }; return ''; });
       break; }
     case 'logShift': { const d = +el.dataset.d; state.logDay = d === 0 ? TODAY : addDays(state.logDay, d); if (state.logDay > TODAY) state.logDay = TODAY; render(); break; }
+    case 'impGo': impRun(); break;
     case 'logUserPick': state.logUser = state.logUser === id ? '' : id; render(); break;
     case 'copyRemind': copyText($('#remindTxt').value, '#remindTxt'); break;
     case 'closeModal': closeModal(); break;
@@ -1282,6 +1536,11 @@ document.addEventListener('change', async e => {
   if (el.id === 'planDoctor') { state.planDoctor = el.value; $('#plansList').innerHTML = plansListHtml(); }
   else if (el.id === 'repFrom' || el.id === 'repTo') { state[el.id] = el.value; render(); }
   else if (el.dataset.role) { const u = byId('users', el.dataset.role); if (u) { await save('users', { ...u, role: el.value }, t('saved')); await log('user.role', { name: u.name, role: el.value }); } }
+  else if (el.id === 'impFile') { const f = el.files?.[0]; if (f) impReadFile(f); }
+  else if (el.dataset.impmgr != null && state.imp) state.imp.mgrMap[el.dataset.impmgr] = el.value;
+  else if (el.dataset.ucode) { const u = byId('users', el.dataset.ucode); if (u) await assignCode(u, el.value); }
+  else if (el.dataset.plandoc) { const p = byId('plans', el.dataset.plandoc); if (p) await save('plans', { ...p, doctorId: el.value }, t('saved')); }
+  else if (el.dataset.planmgr) { const p = byId('plans', el.dataset.planmgr); if (p) await save('plans', { ...p, managerId: el.value }, t('saved')); }
   else if (el.id === 'logDay') { state.logDay = el.value > TODAY ? TODAY : (el.value || TODAY); render(); }
   else if (el.id === 'logUser') { state.logUser = el.value; render(); }
   else if (el.id === 'nf_type') { const w = $('#nf_promWrap'); if (w) w.hidden = el.value !== 'promise'; }
